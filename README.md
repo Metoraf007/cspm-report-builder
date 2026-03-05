@@ -10,6 +10,7 @@ A self-hosted web tool for building, managing, and exporting Cloud Security Post
 
 - **Report builder UI** — fill in client details, add findings with severity, evidence screenshots, recommendations, and policy mappings
 - **PDF export** — server-side rendering via Playwright/Chromium with proper Hebrew RTL layout, headers, footers, and page breaks
+- **AI writing assistant** — optional Gemini integration to improve phrasing of report fields, with a selectable model (gemini-2.0-flash, 2.5-flash, 2.5-pro)
 - **State management** — save/load report configurations as JSON, both locally and on the server
 - **CSV import** — bulk import findings from CSV exports (auto-maps common column names)
 - **File manager** — upload, download, and manage state files and output reports on the server
@@ -43,6 +44,17 @@ When set, all requests (except `/api/health`) require either:
 - `Authorization: Bearer <token>` header, or
 - `?token=<token>` query parameter (for browser downloads)
 
+### Enable AI writing assistant
+
+Set your Gemini API key as an environment variable before starting the container:
+
+```bash
+export GEMINI_API_KEY=your-api-key-here
+docker compose up -d
+```
+
+Get a free key at [aistudio.google.com/apikey](https://aistudio.google.com/apikey). When enabled, "✨ שפר ניסוח" buttons appear below free-text fields, and a model selector dropdown appears in the report details section. Supported models: `gemini-2.0-flash`, `gemini-2.5-flash`, `gemini-2.5-pro`.
+
 ### Configuration
 
 | Environment Variable | Default | Description |
@@ -50,7 +62,7 @@ When set, all requests (except `/api/health`) require either:
 | `PORT` | `8080` | Server port |
 | `APP_TOKEN` | _(empty)_ | Bearer token for auth (empty = open access) |
 | `CLEANUP_DAYS` | `30` | Auto-delete output files older than N days (0 = disabled) |
-| `GEMINI_API_KEY` | _(empty)_ | Google Gemini API key for AI writing assistant (empty = disabled). Get one at [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
+| `GEMINI_API_KEY` | _(empty)_ | Google Gemini API key for AI writing assistant (empty = disabled) |
 | `FLASK_DEBUG` | `0` | Enable Flask debug mode |
 
 ## Usage

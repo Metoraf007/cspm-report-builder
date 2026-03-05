@@ -385,7 +385,9 @@ GEMINI_SYSTEM_PROMPT = (
     "- Be concise and precise. Avoid filler words.\n"
     "- Use formal but readable tone suitable for a security report delivered to management.\n"
     "- Preserve the original meaning and all technical details.\n"
-    "- Return ONLY the improved text, nothing else. No explanations, no markdown."
+    "- Return ONLY the improved text, nothing else. No explanations, no markdown.\n"
+    "- The input may start with a [שדה: ...] tag indicating the field context. "
+    "Use it to understand the context but NEVER include it in your output."
 )
 
 
@@ -447,6 +449,11 @@ def api_suggest():
             return jsonify({"error": "No response from model"}), 502
         parts = candidates[0].get("content", {}).get("parts", [])
         suggestion = parts[0].get("text", "").strip() if parts else ""
+        # Strip field hint tag if the model echoed it back
+        if suggestion.startswith("[שדה:"):
+            idx = suggestion.find("]")
+            if idx != -1:
+                suggestion = suggestion[idx + 1:].strip()
         if not suggestion:
             return jsonify({"error": "Empty response from model"}), 502
         return jsonify({"suggestion": suggestion})

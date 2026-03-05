@@ -17,5 +17,5 @@ services:
       - CLEANUP_DAYS=30
       # Gemini API key for AI writing assistant (optional)
       # Get one at https://aistudio.google.com/apikey
-      # - GEMINI_API_KEY=your-api-key-here
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
     restart: unless-stopped
