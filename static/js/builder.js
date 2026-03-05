@@ -621,9 +621,9 @@
         });
         if (total === 0) return '';
 
-        // Build SVG pie chart
+        // Build SVG pie chart (pie only, no legend inside SVG)
         var cx = 100, cy = 100, r = 80;
-        var angle = -Math.PI / 2; // start at top
+        var angle = -Math.PI / 2;
         var paths = '';
         slices.forEach(function(s) {
           var sweep = (s.count / total) * 2 * Math.PI;
@@ -638,19 +638,20 @@
           angle += sweep;
         });
 
-        // Legend
-        var legend = '';
-        var ly = 10;
+        // HTML legend beside the chart
+        var legendItems = '';
         slices.forEach(function(s) {
-          legend += '<rect x="210" y="' + ly + '" width="12" height="12" rx="2" fill="' + s.color + '"/>';
-          legend += '<text x="226" y="' + (ly + 11) + '" font-size="12" fill="#333" font-family="Arial">' +
-            s.label + ' (' + s.count + ')' + '</text>';
-          ly += 22;
+          legendItems += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">' +
+            '<span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:' + s.color + ';flex-shrink:0;"></span>' +
+            '<span style="font-size:13px;color:#333;font-family:Arial;">' + s.label + ' (' + s.count + ')</span>' +
+            '</div>';
         });
 
-        return '<div style="text-align:center;margin:10px 0;">' +
-          '<svg width="340" height="200" viewBox="0 0 340 200" xmlns="http://www.w3.org/2000/svg">' +
-          paths + legend + '</svg></div>';
+        return '<div style="display:flex;align-items:center;justify-content:center;gap:30px;margin:16px 0;direction:rtl;">' +
+          '<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">' +
+          paths + '</svg>' +
+          '<div style="display:flex;flex-direction:column;">' + legendItems + '</div>' +
+          '</div>';
       }
 
       function buildReportHtml() {
@@ -868,10 +869,10 @@
     page-break-after: always;
     background: #ffffff;
     margin: 0 auto 10mm auto;
-    padding: 10mm 10mm 12mm 10mm;
+    padding: 14mm 10mm 12mm 10mm;
     box-shadow: 0 4px 12px rgba(15, 23, 42, 0.18);
     border-radius: 6px;
-    border-top: 5px solid #0b3c5d;  /* פס כחול בראש כל "עמוד" לוגי */
+    border-top: 5px solid #0b3c5d;
   }
 
   .page-section:last-child {
@@ -880,7 +881,7 @@
   }
 
   h1, h2, h3, h4 {
-    margin-top: 18mm;
+    margin-top: 8px;
     margin-bottom: 8px;
     color: #0b3c5d;
   }
@@ -890,6 +891,7 @@
     border-right: 4px solid #15559b;
     padding-right: 6px;
     margin-bottom: 10px;
+    padding-top: 4px;
   }
 
   h2 {
@@ -933,8 +935,19 @@
     display: flex;
     flex-direction: column;
     justify-content: center;
-    align-items: flex-start;
+    align-items: center;
+    text-align: center;
     min-height: 220mm;
+  }
+
+  .cover-image {
+    width: 100%;
+    margin-bottom: 24px;
+  }
+
+  .cover-image img {
+    display: block;
+    margin: 0 auto;
   }
 
   .cover-main-title {
@@ -1204,9 +1217,9 @@
 
     <section class="page-section cover">
       <div class="cover-page-inner">
-        ${coverImageDataUrl ? '<div class="cover-image"><img src="' + coverImageDataUrl + '" alt="CSPM Report Cover" style="width:100%;max-height:280px;object-fit:contain;border-radius:8px;margin-bottom:20px;"></div>' : ''}
         <div class="cover-main-title">${escapeHtml(teamName)}</div>
         <div class="cover-subtitle">בדיקת מצב אבטחה, תצורה ועמידה במדיניות בסביבת הענן הארגונית</div>
+        ${coverImageDataUrl ? '<div class="cover-image"><img src="' + coverImageDataUrl + '" alt="CSPM Report Cover" style="width:100%;max-height:280px;object-fit:contain;border-radius:8px;"></div>' : ''}
 
         <div class="cover-meta">
           <p><strong>שם הלקוח:</strong> ${escapeHtml(client || '__________')}</p>
