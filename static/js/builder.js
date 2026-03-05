@@ -577,6 +577,20 @@
         return parts.join('_') + '.' + ext;
       }
 
+      // --- Cover image: preload as base64 for embedding in report ---
+      var coverImageDataUrl = '';
+      fetch('/assets/cover.png')
+        .then(function(r) { if (r.ok) return r.blob(); throw new Error('no cover'); })
+        .then(function(blob) {
+          return new Promise(function(resolve) {
+            var reader = new FileReader();
+            reader.onload = function() { resolve(reader.result); };
+            reader.readAsDataURL(blob);
+          });
+        })
+        .then(function(dataUrl) { coverImageDataUrl = dataUrl; })
+        .catch(function() { /* no cover image — that's fine */ });
+
       function countSeverity(key) {
         return findings.filter(f => f.severity === key).length;
       }
@@ -1190,6 +1204,7 @@
 
     <section class="page-section cover">
       <div class="cover-page-inner">
+        ${coverImageDataUrl ? '<div class="cover-image"><img src="' + coverImageDataUrl + '" alt="CSPM Report Cover" style="width:100%;max-height:280px;object-fit:contain;border-radius:8px;margin-bottom:20px;"></div>' : ''}
         <div class="cover-main-title">${escapeHtml(teamName)}</div>
         <div class="cover-subtitle">בדיקת מצב אבטחה, תצורה ועמידה במדיניות בסביבת הענן הארגונית</div>
 
