@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CSPM Report Builder</title>
+  <link rel="stylesheet" href="/static/css/builder.css">
+</head>
+<body>
+  <div class="app-container">
+    <h1>CSPM Report Builder</h1>
+    <p class="muted">
+      ממלאים פרטי דו"ח, מוסיפים ממצאים (כולל הוכחה כתמונה), אפשר לערוך/למחוק/להזיז. בסוף מייצרים דו"ח HTML או PDF.
+    </p>
+
+    <!-- פרטי דו"ח כלליים -->
+    <details class="section-box" open>
+      <summary id="section-report-details">פרטי דו"ח</summary>
+      <div class="section-body">
+        <div class="row">
+          <div class="col">
+            <label for="report-client">שם הלקוח</label>
+            <input type="text" id="report-client" placeholder="לדוגמה: משרד XYZ">
+          </div>
+          <div class="col">
+            <label for="report-env">סביבת בדיקה / ענן</label>
+            <input type="text" id="report-env" placeholder="AWS / Azure / GCP / Multi-Cloud">
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col">
+            <label for="report-range">טווח הבדיקה (טקסט חופשי)</label>
+            <input type="text" id="report-range" placeholder="01/01/2025 - 15/01/2025">
+          </div>
+          <div class="col">
+            <label for="report-consultant">שם היועץ / גוף מבצע</label>
+            <input type="text" id="report-consultant" placeholder="שם היועץ / חברה">
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col">
+            <label for="report-date">תאריך הדו"ח</label>
+            <input type="date" id="report-date">
+          </div>
+          <div class="col">
+            <label for="report-risk">הערכת סיכון כללית</label>
+            <select id="report-risk">
+              <option value="">-- לא נבחר --</option>
+              <option value="נמוכה">נמוכה</option>
+              <option value="בינונית">בינונית</option>
+              <option value="גבוהה">גבוהה</option>
+              <option value="קריטית">קריטית</option>
+            </select>
+          </div>
+        </div>
+
+        <h3><label for="report-exec-summary">תקציר מנהלים (טקסט חופשי)</label></h3>
+        <textarea id="report-exec-summary" rows="4"
+          placeholder="תקציר מנהלים – מה מצב ה-POSTURE הכללי, כמה ממצאים קריטיים, מה המסר לניהול?"></textarea>
+
+        <h3><label for="report-key-topics">נושאי מפתח (שורה לכל Bullet)</label></h3>
+        <textarea id="report-key-topics" rows="4"
+          placeholder="IAM והרשאות יתר...&#10;חשיפה לאינטרנט ומשאבים ציבוריים...&#10;הצפנה וניהול מפתחות..."></textarea>
+
+        <h3>מיתוג הדו"ח</h3>
+        <div class="row">
+          <div class="col">
+            <label for="report-team-name">שם הצוות / כותרת דו"ח</label>
+            <input type="text" id="report-team-name" placeholder="לדוגמה: צוות אבטחת מידע">
+          </div>
+          <div class="col">
+            <label for="report-org-name">שם הארגון</label>
+            <input type="text" id="report-org-name" placeholder="לדוגמה: החברה שלי">
+          </div>
+        </div>
+        <div class="row">
+          <div class="col">
+            <label for="report-footer-text">טקסט תחתית הדו"ח</label>
+            <input type="text" id="report-footer-text" placeholder="לדוגמה: סודי – לשימוש פנימי בלבד">
+          </div>
+          <div class="col">
+            <label for="report-cover-note">הערת שער (אופציונלי)</label>
+            <input type="text" id="report-cover-note" placeholder="לדוגמה: ממצאי CSPM כפי שאותרו באמצעות כלי הסריקה">
+          </div>
+        </div>
+      </div>
+    </details>
+
+    <!-- טופס הוספת/עריכת ממצא -->
+    <details class="section-box" open>
+      <summary id="section-finding-form">הוספת / עריכת ממצא CSPM</summary>
+      <div class="section-body">
+        <p class="muted small-text">
+          שדות חובה: מזהה, כותרת. כל השאר אופציונליים. ניתן להעלות תמונה כהוכחת ממצא.
+        </p>
+
+        <div class="row">
+          <div class="col">
+            <label for="f-id">מזהה ממצא (ID) *</label>
+            <input type="text" id="f-id" placeholder="CSPM-001" required aria-required="true" readonly>
+            <p class="muted small-text">מזהה נוצר אוטומטית. ניתן ללחוץ ולשנות ידנית.</p>
+          </div>
+          <div class="col">
+            <label for="f-title">כותרת ממצא *</label>
+            <input type="text" id="f-title" placeholder="Bucket ציבורי עם נתונים רגישים" required aria-required="true">
+          </div>
+          <div class="col">
+            <label for="f-severity">רמת חומרה</label>
+            <select id="f-severity">
+              <option value="critical">קריטי</option>
+              <option value="high">גבוה</option>
+              <option value="medium" selected>בינוני</option>
+              <option value="low">נמוך</option>
+              <option value="info">מידע</option>
+            </select>
+          </div>
+        </div>
+
+        <label for="f-description">תיאור הממצא</label>
+        <textarea id="f-description" rows="3" placeholder="מה זוהה בפועל?"></textarea>
+
+        <label for="f-impact">השפעה עסקית / סיכון</label>
+        <textarea id="f-impact" rows="3" placeholder="מה המשמעות העסקית / רגולטורית / תפעולית?"></textarea>
+
+        <div class="row">
+          <div class="col">
+            <label for="f-technical">פרטים טכניים (שורה לכל נקודה)</label>
+            <textarea id="f-technical" rows="4" placeholder="ענן: ...&#10;חשבון: ...&#10;שירות: ..."></textarea>
+          </div>
+          <div class="col">
+            <label for="f-policies">מדיניות / תקנים רלוונטיים (שורה לכל תג)</label>
+            <textarea id="f-policies" rows="4" placeholder="מדיניות אבטחת מידע...&#10;ISO 27001 A.9&#10;NIST CSF PR.AC"></textarea>
+          </div>
+        </div>
+
+        <label for="f-recs">המלצות (שורה לכל סעיף רשימה)</label>
+        <textarea id="f-recs" rows="4" placeholder="לבטל גישה ציבורית...&#10;להפעיל הצפנה..."></textarea>
+
+        <div class="row">
+          <div class="col">
+            <label for="f-priority-select">עדיפות טיפול (Drop-down)</label>
+            <select id="f-priority-select">
+              <option value="">-- לא צוין --</option>
+              <option value="מיידי (0–7 ימים)">מיידי (0–7 ימים)</option>
+              <option value="גבוהה (עד 30 ימים)">גבוהה (עד 30 ימים)</option>
+              <option value="בינונית (30–60 ימים)">בינונית (30–60 ימים)</option>
+              <option value="נמוכה (60–120 ימים)">נמוכה (60–120 ימים)</option>
+              <option value="למעקב">למעקב</option>
+              <option value="custom">אחר (טקסט חופשי)</option>
+            </select>
+          </div>
+          <div class="col priority-custom-wrapper hidden" id="priority-custom-wrapper">
+            <label for="f-priority-custom">עדיפות טיפול (טקסט חופשי)</label>
+            <input type="text" id="f-priority-custom" placeholder="למשל: טיפול ברבעון הבא">
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col">
+            <label for="f-evidence">העלאת תמונת הוכחה (אופציונלי)</label>
+            <div id="evidence-drop-zone" class="drop-zone" tabindex="0" role="button" aria-label="גרור תמונה לכאן או לחץ לבחירה. אפשר גם Ctrl+V להדבקה מהלוח.">
+              <input type="file" id="f-evidence" accept="image/*" aria-label="העלאת תמונת הוכחה לממצא">
+              <p class="drop-zone-text">גרור תמונה לכאן, לחץ לבחירה, או <strong>Ctrl+V</strong> להדבקה</p>
+              <div id="evidence-preview" class="evidence-preview"></div>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn btn-primary" id="btn-add-finding">הוסף ממצא לרשימה</button>
+        <button class="btn btn-secondary" id="btn-cancel-edit" style="display:none;">בטל עריכה</button>
+        <span class="kbd-hint">Ctrl+Enter להוספה מהירה</span>
+        <span id="edit-state" class="muted small-text"></span>
+      </div>
+    </details>
+
+    <!-- רשימת הממצאים שנצברו -->
+    <details class="section-box" open>
+      <summary id="section-findings-list">ממצאים שנוספו</summary>
+      <div class="section-body">
+        <p class="muted small-text">
+          ניתן לערוך, למחוק ולהזיז כל ממצא. הסדר כאן הוא הסדר שיופיע בדו"ח. עמודה תציין אם יש הוכחת תמונה.
+        </p>
+        <button class="btn btn-secondary btn-sm" id="btn-sort-severity">מיין לפי חומרה ↓</button>
+        <div id="findings-table-wrapper" class="small-text" role="region" aria-live="polite"></div>
+      </div>
+    </details>
+
+    <!-- יצירת דו"ח -->
+    <details class="section-box" open>
+      <summary id="section-export">ייצוא דו"ח</summary>
+      <div class="section-body">
+        <p class="muted">
+          אפשר לפתוח דו"ח בחלון חדש (להדפסה ל-PDF) או להורידו כקובץ HTML לעריכה עתידית.
+        </p>
+        <button class="btn btn-secondary" id="btn-generate" disabled>פתח דו"ח בחלון חדש</button>
+        <button class="btn btn-secondary" id="btn-download" disabled>הורד דו"ח כקובץ HTML</button>
+        <button class="btn btn-secondary" id="btn-export-json">ייצא תצורת דו"ח (JSON)</button>
+        <button class="btn btn-secondary" id="btn-import-json">טען תצורת דו"ח</button>
+        <button class="btn btn-secondary" id="btn-import-csv">ייבוא ממצאים מ-CSV</button>
+        <input type="file" id="input-import-json" accept="application/json" style="display:none;" aria-label="בחירת קובץ תצורה לטעינה">
+        <input type="file" id="input-import-csv" accept=".csv,text/csv" style="display:none;" aria-label="בחירת קובץ CSV לייבוא ממצאים">
+        <button class="btn btn-primary" id="btn-render-pdf" disabled>ייצא PDF (שרת)</button>
+        <button class="btn btn-secondary" id="btn-save-state-cloud">שמור תצורה בשרת</button>
+        <span id="status-msg" class="muted small-text" role="status" aria-live="polite"></span>
+      </div>
+    </details>
+
+    <!-- Cloud File Manager -->
+    <details class="section-box">
+      <summary id="section-cloud-manager">ניהול קבצים בשרת</summary>
+      <div class="section-body">
+        <p class="muted small-text">קבצי תצורה (JSON) ופלטים (HTML/PDF) שנשמרו בשרת.</p>
+
+        <h3>תצורות שמורות</h3>
+        <div id="states-list" class="small-text"><p class="muted">טוען...</p></div>
+
+        <h3>קבצי פלט</h3>
+        <div id="outputs-list" class="small-text"><p class="muted">טוען...</p></div>
+
+        <div style="margin-top:8px;">
+          <label for="cloud-upload-state">העלאת קובץ תצורה (JSON) לשרת</label>
+          <input type="file" id="cloud-upload-state" accept="application/json" aria-label="העלאת קובץ תצורה לשרת">
+        </div>
+      </div>
+    </details>
+
+  </div>
+
+  <script src="/static/js/builder.js"></script>
+</body>
+</html>

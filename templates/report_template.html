@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <title>{{ meta.client or "דו\"ח CSPM" }}</title>
+  <link rel="stylesheet" href="{{ css_path }}">
+</head>
+<body>
+
+  <!-- running header/footer blocks -->
+  <div class="hdr-left">
+    <div style="font-weight:800;color:#0b3c5d;">{{ meta.teamName or "CSPM Report" }}</div>
+    <div style="font-size:10px;color:#64748b;">{{ meta.client or "__________" }} · {{ meta.env or "__________" }}</div>
+  </div>
+
+  <div class="hdr-right">
+    <div style="font-size:10px;color:#64748b; text-align:left;">
+      תאריך הדו"ח: {{ meta.reportDate or "DD/MM/YYYY" }}
+    </div>
+    <div style="font-weight:800;color:#0b3c5d; text-align:left;">
+      {{ meta.consultant or "" }}
+    </div>
+  </div>
+
+  <div class="ftr-left">
+    <div style="font-size:10px;color:#64748b;">{{ meta.footerText or "" }}</div>
+  </div>
+
+  <!-- COVER -->
+  <section class="page-section cover">
+    <div class="cover-page-inner">
+      <div class="cover-main-title">{{ meta.teamName or "CSPM Report" }}</div>
+      <div class="cover-subtitle">בדיקת מצב אבטחה, תצורה ועמידה במדיניות בסביבת הענן הארגונית</div>
+
+      <div class="cover-meta">
+        <p><strong>שם הלקוח:</strong> {{ meta.client or "__________" }}</p>
+        <p><strong>סביבת בדיקה / ענן:</strong> {{ meta.env or "__________" }}</p>
+        <p><strong>טווח הבדיקה:</strong> {{ meta.range or "__________" }}</p>
+        <p><strong>יועץ / גורם מבצע:</strong> {{ meta.consultant or "__________" }}</p>
+        <p><strong>תאריך דו"ח:</strong> {{ meta.reportDate or "__________" }}</p>
+      </div>
+
+      <div class="cover-badge">
+        {{ meta.coverNote or "מסמך זה מסכם את ממצאי ה-CSPM כפי שאותרו, כולל ניתוח סיכונים והמלצות לטיפול." }}
+      </div>
+    </div>
+  </section>
+
+  <!-- TOC -->
+  <section class="page-section">
+    <h1>תוכן עניינים</h1>
+    <p class="muted">לחיצה על סעיף תקפיץ למיקום המתאים במסמך.</p>
+    <ul>
+      <li><a href="#exec-summary">1. תקציר מנהלים</a></li>
+      <li><a href="#scope-method">2. תחום הבדיקה ומתודולוגיה</a></li>
+      <li><a href="#findings-summary">3. סיכום ממצאים לפי רמת חומרה</a></li>
+      <li><a href="#detailed-findings">4. ממצאים עיקריים (CSPM)</a></li>
+      <li><a href="#recommendations">5. המלצות ותכנית טיפול</a></li>
+      <li><a href="#appendix-a">נספח א' – מיפוי ממצאים למדיניות / תקנים</a></li>
+    </ul>
+  </section>
+
+  <!-- EXEC -->
+  <section class="page-section" id="exec-summary">
+    <h1>1. תקציר מנהלים</h1>
+    {% if meta.execSummary %}
+      <p>{{ meta.execSummary }}</p>
+    {% else %}
+      <p>הדו"ח מסכם את מצב ה-POSTURE בסביבת הענן שנבדקה, לרבות ממצאים מרכזיים והערכת סיכון.</p>
+    {% endif %}
+    <p><strong>הערכת סיכון כללית:</strong> {{ meta.reportRisk or "נמוכה / בינונית / גבוהה" }}</p>
+
+    <h2 id="scope-method">2. תחום הבדיקה ומתודולוגיה</h2>
+    <h3>2.1 תחום בדיקה</h3>
+    <p>הבדיקה בוצעה על גבי חשבונות הענן/פרויקטים כפי שסוכם עם הלקוח.</p>
+    <h3>2.2 כלי בדיקה</h3>
+    <p>הבדיקה התבססה על כלי CSPM/CNAPP, בשילוב בדיקות ידניות והצלבת מדיניות.</p>
+    <h3>2.3 מתודולוגיית עבודה</h3>
+    <ul>
+      <li>איסוף ממצאים</li>
+      <li>קיבוץ לפי חומרה ושירות</li>
+      <li>וולידציה והפחתת False Positive</li>
+      <li>המלצות ותכנית טיפול</li>
+    </ul>
+  </section>
+
+  <!-- SUMMARY -->
+  <section class="page-section" id="findings-summary">
+    <h1>3. סיכום ממצאים לפי רמת חומרה</h1>
+    <table>
+      <thead>
+        <tr><th>רמת חומרה</th><th>מספר ממצאים</th><th>הערות</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>קריטי</td><td>{{ counts.critical }}</td><td>חשיפה ישירה/השפעה חמורה.</td></tr>
+        <tr><td>גבוה</td><td>{{ counts.high }}</td><td>סיכון מוגבר לדליפה/השבתה.</td></tr>
+        <tr><td>בינוני</td><td>{{ counts.medium }}</td><td>פערי best practices.</td></tr>
+        <tr><td>נמוך</td><td>{{ counts.low }}</td><td>שיפורי הקשחה.</td></tr>
+        <tr><td>מידע</td><td>{{ counts.info }}</td><td>מידע לתכנון עתידי.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>3.1 נושאי מפתח</h2>
+    {% if key_topics %}
+      <ul>
+        {% for t in key_topics %}
+          <li>{{ t }}</li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="muted">לא הוזנו נושאי מפתח.</p>
+    {% endif %}
+  </section>
+
+  <!-- FINDINGS -->
+  <section class="page-section" id="detailed-findings">
+    <h1>4. ממצאים עיקריים (CSPM)</h1>
+
+    {% if findings %}
+      {% for f in findings %}
+        <div class="finding-card" id="{{ f.anchor }}">
+          <div class="finding-header">
+            <div>
+              <div class="finding-title">{{ f.title }}</div>
+              <div class="finding-id">מזהה ממצא: {{ f.id }}</div>
+            </div>
+            <div class="severity-badge {{ f.sev_class }}">{{ f.sev_text }}</div>
+          </div>
+
+          <div class="finding-section-title"><strong>תיאור הממצא</strong></div>
+          <p>{{ f.description or "" }}</p>
+
+          <div class="finding-section-title"><strong>השפעה עסקית / סיכון</strong></div>
+          <p>{{ f.impact or "" }}</p>
+
+          <div class="two-column">
+            <div>
+              <div class="finding-section-title"><strong>פרטים טכניים</strong></div>
+              {% if f.technical %}
+                <ul>{% for x in f.technical %}<li>{{ x }}</li>{% endfor %}</ul>
+              {% else %}
+                <p class="muted">לא סופקו פרטים טכניים.</p>
+              {% endif %}
+            </div>
+            <div>
+              <div class="finding-section-title"><strong>חוקים / מדיניות רלוונטיים</strong></div>
+              {% if f.policies %}
+                <ul class="tag-list">{% for x in f.policies %}<li>{{ x }}</li>{% endfor %}</ul>
+              {% else %}
+                <p class="muted">לא סומנו מדיניות / תקנים.</p>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="finding-section-title"><strong>המלצות</strong></div>
+          {% if f.recs %}
+            <ul>{% for x in f.recs %}<li>{{ x }}</li>{% endfor %}</ul>
+          {% else %}
+            <p class="muted">לא סופקו המלצות.</p>
+          {% endif %}
+
+          <div class="finding-section-title"><strong>עדיפות טיפול</strong></div>
+          <p>{{ f.priority or "לא הוגדרה עדיפות טיפול." }}</p>
+
+          {% if f.evidence %}
+            <div class="finding-section-title"><strong>הוכחת ממצא</strong></div>
+            <img src="{{ f.evidence }}" alt="הוכחת ממצא" style="max-height:300px;border:1px solid #ccc;border-radius:4px;">
+          {% endif %}
+        </div>
+      {% endfor %}
+    {% else %}
+      <p class="muted">לא נוספו ממצאים.</p>
+    {% endif %}
+  </section>
+
+  <!-- TREATMENT -->
+  <section class="page-section" id="recommendations">
+    <h1>5. המלצות ותכנית טיפול</h1>
+    <table>
+      <thead>
+        <tr>
+          <th>מזהה ממצא</th><th>תיאור קצר</th><th>חומרה</th><th>בעלים</th><th>יעד סגירה</th><th>סטטוס</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if findings %}
+          {% for f in findings %}
+            <tr>
+              <td><a href="#{{ f.anchor }}">{{ f.id }}</a></td>
+              <td><a href="#{{ f.anchor }}">{{ f.title }}</a></td>
+              <td>{{ f.sev_text }}</td>
+              <td>Owner / Team</td>
+              <td>{{ f.due_date or "DD/MM/YYYY" }}</td>
+              <td>פתוח</td>
+            </tr>
+          {% endfor %}
+        {% else %}
+          <tr><td colspan="6">לא נוספו ממצאים.</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </section>
+
+  <!-- APPENDIX -->
+  <section class="page-section" id="appendix-a">
+    <h1>נספח א' – מיפוי ממצאים למדיניות / תקנים</h1>
+    <table>
+      <thead>
+        <tr><th>מזהה ממצא</th><th>מדיניות ארגונית / סעיף</th><th>תקן / Framework</th><th>הערות</th></tr>
+      </thead>
+      <tbody>
+        {% if findings %}
+          {% for f in findings %}
+            <tr>
+              <td>{{ f.id }}</td>
+              <td>{{ (f.policies[0] if f.policies else "—") }}</td>
+              <td>{{ ("ISO / NIST (לפי הצורך)" if (f.policies and f.policies[0]) else "—") }}</td>
+              <td></td>
+            </tr>
+          {% endfor %}
+        {% else %}
+          <tr><td colspan="4">לא נוספו ממצאים.</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </section>
+
+</body>
+</html>

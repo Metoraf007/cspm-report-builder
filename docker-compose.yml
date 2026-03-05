@@ -1,0 +1,21 @@
+services:
+  cspm-report:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./output:/app/output
+      - ./uploads:/app/uploads
+      - ./index.html:/app/index.html
+      - ./static:/app/static
+      - ./assets:/app/assets
+    environment:
+      - PORT=8080
+      - FLASK_DEBUG=0
+      # Set a token to protect the app (leave empty for open access)
+      # - APP_TOKEN=your-secret-token-here
+      - CLEANUP_DAYS=30
+      # Gemini API key for AI writing assistant (optional)
+      # Get one at https://aistudio.google.com/apikey
+      # - GEMINI_API_KEY=your-api-key-here
+    restart: unless-stopped

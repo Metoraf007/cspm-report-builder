@@ -1,0 +1,114 @@
+/* assets/report.css */
+@page {
+  size: A4;
+  margin: 22mm 15mm 18mm 15mm; /* top right bottom left: שמור header/footer */
+
+  /* Header (מעמוד 2 והלאה) */
+  @top-left  { content: element(hdr_left); }
+  @top-right { content: element(hdr_right); }
+  @top-center {
+    content: "";
+    display: block;
+    border-bottom: 1px solid #cbd5e1;
+    height: 0;
+  }
+
+  /* Footer (בכל העמודים) */
+  @bottom-left { content: element(ftr_left); }
+  @bottom-right {
+    content: "עמוד " counter(page) " מתוך " counter(pages);
+    font-size: 10px;
+    color: #64748b;
+  }
+  @bottom-center {
+    content: "";
+    display: block;
+    border-top: 1px solid #cbd5e1;
+    height: 0;
+  }
+}
+
+/* עמוד ראשון – בלי header (כמו בדוגמה) */
+@page:first {
+  @top-left { content: none; }
+  @top-right { content: none; }
+  @top-center { content: none; }
+}
+
+/* running elements */
+.hdr-left  { position: running(hdr_left); }
+.hdr-right { position: running(hdr_right); }
+.ftr-left  { position: running(ftr_left); }
+
+html, body {
+  direction: rtl;
+  font-family: Arial, "Segoe UI", Tahoma, sans-serif;
+  color: #111827;
+}
+
+.page-section {
+  break-after: page;
+  background: #ffffff;
+  padding: 10mm 10mm 12mm 10mm;
+  border-top: 5px solid #0b3c5d; /* הפס הכחול שלך */
+}
+
+.page-section:last-child {
+  break-after: auto;
+}
+
+h1 { font-size: 26px; margin: 4mm 0 3mm; color:#0b3c5d; border-right:4px solid #15559b; padding-right:6px; }
+h2 { font-size: 19px; margin: 4mm 0 3mm; color:#0b3c5d; border-right:3px solid #1d4ed8; padding-right:5px; }
+h3 { font-size: 15px; margin: 3mm 0 2mm; color:#1e293b; }
+p, ul, ol { font-size: 13px; line-height: 1.6; margin: 2mm 0; }
+.muted { color:#6b7280; font-size:12px; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 4mm 0;
+  font-size: 12px;
+}
+th, td { border: 1px solid #d1d5db; padding: 6px 8px; vertical-align: top; }
+th { background: #0b3c5d; color: #fff; font-weight: bold; }
+
+.finding-card {
+  break-inside: avoid;
+  border: 1px solid #e2e8f0;
+  background: #f9fafb;
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin: 4mm 0;
+}
+
+.finding-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 4px;
+  margin-bottom: 6px;
+}
+
+.finding-title { font-weight: 700; font-size: 13px; color:#0b3c5d; }
+.finding-id { font-size: 11px; color:#6b7280; }
+.severity-badge { padding: 2px 8px; border-radius: 999px; font-size: 11px; color:#fff; font-weight:700; }
+
+.sev-critical { background:#b91c1c; }
+.sev-high     { background:#ef4444; }
+.sev-medium   { background:#f97316; }
+.sev-low      { background:#22c55e; }
+.sev-info     { background:#6b7280; }
+
+.two-column { display: flex; gap: 10px; margin-top: 4px; }
+.two-column > div { flex: 1; background:#fff; border:1px solid #e5e7eb; border-radius: 4px; padding: 6px; }
+
+img { max-width: 100%; height: auto; }
+.tag-list { list-style:none; padding:0; margin:0; font-size:11px; }
+.tag-list li { display:inline-block; margin-left:5px; margin-bottom:3px; padding:1px 6px; border-radius:999px; border:1px solid #cbd5e1; background:#eff6ff; color:#1e3a8a; }
+
+.cover-page-inner { min-height: 240mm; display:flex; flex-direction:column; justify-content:center; align-items:flex-start; }
+.cover-main-title { font-size: 30px; font-weight: 800; color:#0b3c5d; margin-bottom: 6mm; }
+.cover-subtitle { font-size: 16px; color:#1f2937; margin-bottom: 8mm; }
+.cover-meta { font-size: 14px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; padding:10px 12px; }
+.cover-badge { margin-top: 10mm; padding:10px 15px; border-radius:6px; background:#0b3c5d; color:#fff; font-size:12px; }
