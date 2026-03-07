@@ -5,6 +5,10 @@ __pycache__/
 .venv/
 venv/
 
+# Environment variables
+.env
+.env.*
+
 # Runtime data
 output/
 uploads/
