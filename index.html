@@ -13,9 +13,17 @@
       ממלאים פרטי דו"ח, מוסיפים ממצאים (כולל הוכחה כתמונה), אפשר לערוך/למחוק/להזיז. בסוף מייצרים דו"ח HTML או PDF.
     </p>
 
-    <!-- פרטי דו"ח כלליים -->
-    <details class="section-box" open>
-      <summary id="section-report-details">פרטי דו"ח</summary>
+    <!-- Tab navigation -->
+    <nav class="tab-bar" role="tablist" aria-label="חלקי הטופס">
+      <button class="tab-btn active" role="tab" aria-selected="true" aria-controls="panel-report-details" id="tab-report-details">פרטי דו"ח</button>
+      <button class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-finding-form" id="tab-finding-form">הוספת / עריכת ממצא</button>
+      <button class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-findings-list" id="tab-findings-list">ממצאים שנוספו</button>
+      <button class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-export" id="tab-export">ייצוא דו"ח</button>
+      <button class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-cloud-manager" id="tab-cloud-manager">ניהול קבצים בשרת</button>
+    </nav>
+
+    <!-- Panel: פרטי דו"ח -->
+    <section class="tab-panel active" id="panel-report-details" role="tabpanel" aria-labelledby="tab-report-details">
       <div class="section-body">
         <div class="row">
           <div class="col">
@@ -27,18 +35,16 @@
             <input type="text" id="report-env" placeholder="AWS / Azure / GCP / Multi-Cloud">
           </div>
         </div>
-
         <div class="row">
           <div class="col">
-            <label for="report-range">טווח הבדיקה (טקסט חופשי)</label>
+            <label for="report-range">טווח הבדיקה</label>
             <input type="text" id="report-range" placeholder="01/01/2025 - 15/01/2025">
           </div>
           <div class="col">
-            <label for="report-consultant">שם היועץ / גוף מבצע</label>
+            <label for="report-consultant">יועץ / גוף מבצע</label>
             <input type="text" id="report-consultant" placeholder="שם היועץ / חברה">
           </div>
         </div>
-
         <div class="row">
           <div class="col">
             <label for="report-date">תאריך הדו"ח</label>
@@ -55,86 +61,71 @@
             </select>
           </div>
         </div>
-
-        <h3><label for="report-exec-summary">תקציר מנהלים (טקסט חופשי)</label></h3>
-        <textarea id="report-exec-summary" rows="4"
-          placeholder="תקציר מנהלים – מה מצב ה-POSTURE הכללי, כמה ממצאים קריטיים, מה המסר לניהול?"></textarea>
-
-        <h3><label for="report-key-topics">נושאי מפתח (שורה לכל Bullet)</label></h3>
-        <textarea id="report-key-topics" rows="4"
-          placeholder="IAM והרשאות יתר...&#10;חשיפה לאינטרנט ומשאבים ציבוריים...&#10;הצפנה וניהול מפתחות..."></textarea>
-
-        <h3>מיתוג הדו"ח</h3>
         <div class="row">
           <div class="col">
-            <label for="report-team-name">שם הצוות / כותרת דו"ח</label>
-            <input type="text" id="report-team-name" placeholder="לדוגמה: צוות אבטחת מידע">
+            <label for="report-exec-summary">תקציר מנהלים</label>
+            <textarea id="report-exec-summary" rows="3" placeholder="מה מצב ה-POSTURE הכללי?"></textarea>
+          </div>
+          <div class="col">
+            <label for="report-key-topics">נושאי מפתח</label>
+            <textarea id="report-key-topics" rows="3" placeholder="IAM והרשאות יתר...&#10;חשיפה לאינטרנט..."></textarea>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col">
+            <label for="report-team-name">שם הצוות / כותרת</label>
+            <input type="text" id="report-team-name" placeholder="צוות אבטחת מידע">
           </div>
           <div class="col">
             <label for="report-org-name">שם הארגון</label>
-            <input type="text" id="report-org-name" placeholder="לדוגמה: החברה שלי">
+            <input type="text" id="report-org-name" placeholder="החברה שלי">
           </div>
         </div>
         <div class="row">
           <div class="col">
-            <label for="report-footer-text">טקסט תחתית הדו"ח</label>
-            <input type="text" id="report-footer-text" placeholder="לדוגמה: סודי – לשימוש פנימי בלבד">
+            <label for="report-footer-text">טקסט תחתית</label>
+            <input type="text" id="report-footer-text" placeholder="סודי – לשימוש פנימי בלבד">
           </div>
           <div class="col">
-            <label for="report-cover-note">הערת שער (אופציונלי)</label>
-            <input type="text" id="report-cover-note" placeholder="לדוגמה: ממצאי CSPM כפי שאותרו באמצעות כלי הסריקה">
+            <label for="report-cover-note">הערת שער</label>
+            <input type="text" id="report-cover-note" placeholder="ממצאי CSPM כפי שאותרו...">
           </div>
         </div>
         <div class="row">
-          <div class="col" style="max-width:200px;">
-            <label for="report-version">גרסת דו"ח</label>
+          <div class="col" style="max-width:120px;">
+            <label for="report-version">גרסה</label>
             <input type="text" id="report-version" value="1.0" placeholder="1.0">
           </div>
-          <div class="col" style="max-width:200px;">
-            <label for="report-lang">שפת הדו"ח</label>
+          <div class="col" style="max-width:120px;">
+            <label for="report-lang">שפה</label>
             <select id="report-lang">
               <option value="he" selected>עברית</option>
               <option value="en">English</option>
             </select>
           </div>
-        </div>
-        <div class="row">
           <div class="col">
-            <label for="report-cover-image">תמונת שער (אופציונלי)</label>
-            <input type="file" id="report-cover-image" accept="image/*" aria-label="העלאת תמונת שער לדו"ח">
+            <label for="report-cover-image">תמונת שער</label>
+            <input type="file" id="report-cover-image" accept="image/*" aria-label="העלאת תמונת שער">
             <div id="cover-image-preview" class="evidence-preview"></div>
           </div>
-        </div>
-        <h3>הגדרות AI</h3>
-        <div class="row" id="ai-model-row" style="display:none;">
-          <div class="col">
-            <label for="ai-model">מודל AI לשיפור ניסוח</label>
+          <div class="col" id="ai-model-row" style="display:none;">
+            <label for="ai-model">מודל AI</label>
             <select id="ai-model"></select>
           </div>
         </div>
       </div>
-    </details>
+    </section>
 
-    <!-- טופס הוספת/עריכת ממצא -->
-    <details class="section-box" open>
-      <summary id="section-finding-form">הוספת / עריכת ממצא</summary>
+    <!-- Panel: טופס הוספת/עריכת ממצא -->
+    <section class="tab-panel" id="panel-finding-form" role="tabpanel" aria-labelledby="tab-finding-form">
       <div class="section-body">
-        <p class="muted small-text">
-          שדות חובה: קטגוריה, כותרת. כל השאר אופציונליים. ניתן להעלות תמונה כהוכחת ממצא.
-        </p>
-
         <div class="row">
           <div class="col">
-            <label for="f-template">תבנית ממצא מוכנה (אופציונלי)</label>
-            <select id="f-template">
-              <option value="">-- בחר תבנית --</option>
-            </select>
+            <label for="f-template">תבנית מוכנה</label>
+            <select id="f-template"><option value="">-- בחר תבנית --</option></select>
           </div>
-        </div>
-
-        <div class="row">
           <div class="col">
-            <label for="f-category">קטגוריית ממצא</label>
+            <label for="f-category">קטגוריה</label>
             <select id="f-category">
               <option value="CSPM">CSPM – Cloud Configuration</option>
               <option value="KSPM">KSPM – Kubernetes</option>
@@ -147,20 +138,18 @@
               <option value="EOLM">EOLM – End of Life</option>
             </select>
           </div>
-          <div class="col">
-            <label for="f-id">מזהה ממצא (ID) *</label>
+          <div class="col" style="max-width:130px;">
+            <label for="f-id">מזהה *</label>
             <input type="text" id="f-id" placeholder="CSPM-001" required aria-required="true" readonly>
-            <p class="muted small-text">מזהה נוצר אוטומטית לפי קטגוריה. ניתן ללחוץ ולשנות ידנית.</p>
           </div>
         </div>
-
         <div class="row">
           <div class="col">
             <label for="f-title">כותרת ממצא *</label>
             <input type="text" id="f-title" placeholder="Bucket ציבורי עם נתונים רגישים" required aria-required="true">
           </div>
-          <div class="col">
-            <label for="f-severity">רמת חומרה</label>
+          <div class="col" style="max-width:140px;">
+            <label for="f-severity">חומרה</label>
             <select id="f-severity">
               <option value="critical">קריטי</option>
               <option value="high">גבוה</option>
@@ -170,30 +159,33 @@
             </select>
           </div>
         </div>
-
-        <label for="f-description">תיאור הממצא</label>
-        <textarea id="f-description" rows="3" placeholder="מה זוהה בפועל?"></textarea>
-
-        <label for="f-impact">השפעה עסקית / סיכון</label>
-        <textarea id="f-impact" rows="3" placeholder="מה המשמעות העסקית / רגולטורית / תפעולית?"></textarea>
-
         <div class="row">
           <div class="col">
-            <label for="f-technical">פרטים טכניים (שורה לכל נקודה)</label>
-            <textarea id="f-technical" rows="4" placeholder="ענן: ...&#10;חשבון: ...&#10;שירות: ..."></textarea>
+            <label for="f-description">תיאור</label>
+            <textarea id="f-description" rows="2" placeholder="מה זוהה בפועל?"></textarea>
           </div>
           <div class="col">
-            <label for="f-policies">מדיניות / תקנים רלוונטיים (שורה לכל תג)</label>
-            <textarea id="f-policies" rows="4" placeholder="מדיניות אבטחת מידע...&#10;ISO 27001 A.9&#10;NIST CSF PR.AC"></textarea>
+            <label for="f-impact">השפעה / סיכון</label>
+            <textarea id="f-impact" rows="2" placeholder="משמעות עסקית / רגולטורית?"></textarea>
           </div>
         </div>
-
-        <label for="f-recs">המלצות (שורה לכל סעיף רשימה)</label>
-        <textarea id="f-recs" rows="4" placeholder="לבטל גישה ציבורית...&#10;להפעיל הצפנה..."></textarea>
-
         <div class="row">
           <div class="col">
-            <label for="f-priority-select">עדיפות טיפול (Drop-down)</label>
+            <label for="f-technical">פרטים טכניים</label>
+            <textarea id="f-technical" rows="2" placeholder="ענן: ...&#10;שירות: ..."></textarea>
+          </div>
+          <div class="col">
+            <label for="f-policies">מדיניות / תקנים</label>
+            <textarea id="f-policies" rows="2" placeholder="ISO 27001 A.9&#10;NIST CSF PR.AC"></textarea>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col">
+            <label for="f-recs">המלצות</label>
+            <textarea id="f-recs" rows="2" placeholder="לבטל גישה ציבורית...&#10;להפעיל הצפנה..."></textarea>
+          </div>
+          <div class="col">
+            <label for="f-priority-select">עדיפות טיפול</label>
             <select id="f-priority-select">
               <option value="">-- לא צוין --</option>
               <option value="מיידי (0–7 ימים)">מיידי (0–7 ימים)</option>
@@ -203,87 +195,69 @@
               <option value="למעקב">למעקב</option>
               <option value="custom">אחר (טקסט חופשי)</option>
             </select>
-          </div>
-          <div class="col priority-custom-wrapper hidden" id="priority-custom-wrapper">
-            <label for="f-priority-custom">עדיפות טיפול (טקסט חופשי)</label>
-            <input type="text" id="f-priority-custom" placeholder="למשל: טיפול ברבעון הבא">
+            <div class="priority-custom-wrapper hidden" id="priority-custom-wrapper" style="margin-top:6px;">
+              <input type="text" id="f-priority-custom" placeholder="טקסט חופשי...">
+            </div>
           </div>
         </div>
-
         <div class="row">
           <div class="col">
-            <label for="f-evidence">העלאת תמונת הוכחה (אופציונלי)</label>
-            <div id="evidence-drop-zone" class="drop-zone" tabindex="0" role="button" aria-label="גרור תמונה לכאן או לחץ לבחירה. אפשר גם Ctrl+V להדבקה מהלוח.">
-              <input type="file" id="f-evidence" accept="image/*" aria-label="העלאת תמונת הוכחה לממצא">
-              <p class="drop-zone-text">גרור תמונה לכאן, לחץ לבחירה, או <strong>Ctrl+V</strong> להדבקה</p>
+            <label for="f-evidence">הוכחה (תמונה)</label>
+            <div id="evidence-drop-zone" class="drop-zone" tabindex="0" role="button" aria-label="גרור תמונה לכאן או לחץ לבחירה">
+              <input type="file" id="f-evidence" accept="image/*" aria-label="העלאת תמונת הוכחה">
+              <p class="drop-zone-text">גרור / לחץ / <strong>Ctrl+V</strong></p>
               <div id="evidence-preview" class="evidence-preview"></div>
             </div>
           </div>
         </div>
-
-        <button class="btn btn-primary" id="btn-add-finding">הוסף ממצא לרשימה</button>
+        <button class="btn btn-primary" id="btn-add-finding">הוסף ממצא</button>
         <button class="btn btn-secondary" id="btn-cancel-edit" style="display:none;">בטל עריכה</button>
         <button class="btn btn-secondary" id="btn-clear-form">נקה טופס</button>
-        <span class="kbd-hint">Ctrl+Enter להוספה מהירה</span>
+        <span class="kbd-hint">Ctrl+Enter</span>
         <span id="edit-state" class="muted small-text"></span>
       </div>
-    </details>
+    </section>
 
-    <!-- רשימת הממצאים שנצברו -->
-    <details class="section-box" open>
-      <summary id="section-findings-list">ממצאים שנוספו</summary>
+    <!-- Panel: רשימת הממצאים -->
+    <section class="tab-panel" id="panel-findings-list" role="tabpanel" aria-labelledby="tab-findings-list">
       <div class="section-body">
-        <p class="muted small-text">
-          ניתן לערוך, למחוק ולהזיז כל ממצא. הסדר כאן הוא הסדר שיופיע בדו"ח. עמודה תציין אם יש הוכחת תמונה.
-        </p>
         <button class="btn btn-secondary btn-sm" id="btn-sort-severity">מיין לפי חומרה ↓</button>
-        <button class="btn btn-danger btn-sm" id="btn-clear-all-findings">מחק את כל הממצאים</button>
+        <button class="btn btn-danger btn-sm" id="btn-clear-all-findings">מחק הכל</button>
         <span class="kbd-hint">J/K לניווט, E לעריכה, D למחיקה</span>
         <div id="findings-table-wrapper" class="small-text" role="region" aria-live="polite"></div>
       </div>
-    </details>
+    </section>
 
-    <!-- יצירת דו"ח -->
-    <details class="section-box" open>
-      <summary id="section-export">ייצוא דו"ח</summary>
+    <!-- Panel: ייצוא דו"ח -->
+    <section class="tab-panel" id="panel-export" role="tabpanel" aria-labelledby="tab-export">
       <div class="section-body">
-        <p class="muted">
-          אפשר לפתוח דו"ח בחלון חדש (להדפסה ל-PDF) או להורידו כקובץ HTML לעריכה עתידית.
-        </p>
+        <button class="btn btn-primary" id="btn-render-pdf" disabled>ייצא PDF</button>
         <button class="btn btn-secondary" id="btn-generate" disabled>תצוגה מקדימה</button>
-        <button class="btn btn-secondary" id="btn-download" disabled>הורד דו"ח HTML</button>
+        <button class="btn btn-secondary" id="btn-download" disabled>הורד HTML</button>
         <button class="btn btn-secondary" id="btn-export-json">הורד תצורה</button>
         <button class="btn btn-secondary" id="btn-import-json">טען תצורה</button>
-        <button class="btn btn-secondary" id="btn-import-csv">ייבוא ממצאים מ-CSV</button>
-        <button class="btn btn-secondary" id="btn-import-baseline">השוואה לדו"ח קודם</button>
-        <input type="file" id="input-import-json" accept="application/json" style="display:none;" aria-label="בחירת קובץ תצורה לטעינה">
-        <input type="file" id="input-import-csv" accept=".csv,text/csv" style="display:none;" aria-label="בחירת קובץ CSV לייבוא ממצאים">
-        <input type="file" id="input-import-baseline" accept="application/json" style="display:none;" aria-label="בחירת קובץ JSON להשוואה">
-        <button class="btn btn-primary" id="btn-render-pdf" disabled>ייצא PDF</button>
-        <button class="btn btn-secondary" id="btn-save-state-cloud">שמור תצורה בשרת</button>
+        <button class="btn btn-secondary" id="btn-import-csv">ייבוא CSV</button>
+        <button class="btn btn-secondary" id="btn-import-baseline">השוואה לקודם</button>
+        <button class="btn btn-secondary" id="btn-save-state-cloud">שמור בשרת</button>
+        <input type="file" id="input-import-json" accept="application/json" style="display:none;" aria-label="בחירת קובץ תצורה">
+        <input type="file" id="input-import-csv" accept=".csv,text/csv" style="display:none;" aria-label="בחירת CSV">
+        <input type="file" id="input-import-baseline" accept="application/json" style="display:none;" aria-label="בחירת JSON להשוואה">
         <span id="status-msg" class="muted small-text" role="status" aria-live="polite"></span>
         <div id="trend-comparison" style="display:none;margin-top:14px;"></div>
       </div>
-    </details>
+    </section>
 
-    <!-- Cloud File Manager -->
-    <details class="section-box">
-      <summary id="section-cloud-manager">ניהול קבצים בשרת</summary>
+    <!-- Panel: ניהול קבצים בשרת -->
+    <section class="tab-panel" id="panel-cloud-manager" role="tabpanel" aria-labelledby="tab-cloud-manager">
       <div class="section-body">
-        <p class="muted small-text">קבצי תצורה (JSON) ופלטים (HTML/PDF) שנשמרו בשרת.</p>
-
-        <h3>תצורות שמורות</h3>
         <div id="states-list" class="small-text"><p class="muted">טוען...</p></div>
-
-        <h3>קבצי פלט</h3>
         <div id="outputs-list" class="small-text"><p class="muted">טוען...</p></div>
-
         <div style="margin-top:8px;">
-          <label for="cloud-upload-state">העלאת קובץ תצורה (JSON) לשרת</label>
+          <label for="cloud-upload-state">העלאת תצורה (JSON)</label>
           <input type="file" id="cloud-upload-state" accept="application/json" aria-label="העלאת קובץ תצורה לשרת">
         </div>
       </div>
-    </details>
+    </section>
 
   </div>
 

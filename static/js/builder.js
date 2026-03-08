@@ -26,6 +26,44 @@
       const importJsonBtn   = document.getElementById('btn-import-json');
       const importJsonInput = document.getElementById('input-import-json');
 
+      // ── Tab navigation ──
+      function switchToTab(tabId) {
+        document.querySelectorAll('.tab-btn').forEach(function(btn) {
+          btn.classList.remove('active');
+          btn.setAttribute('aria-selected', 'false');
+        });
+        document.querySelectorAll('.tab-panel').forEach(function(panel) {
+          panel.classList.remove('active');
+        });
+        var tab = document.getElementById(tabId);
+        if (tab) {
+          tab.classList.add('active');
+          tab.setAttribute('aria-selected', 'true');
+          var panelId = tab.getAttribute('aria-controls');
+          var panel = document.getElementById(panelId);
+          if (panel) panel.classList.add('active');
+        }
+      }
+
+      document.querySelectorAll('.tab-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          switchToTab(btn.id);
+        });
+        // Arrow key navigation between tabs
+        btn.addEventListener('keydown', function(e) {
+          var tabs = Array.from(document.querySelectorAll('.tab-btn'));
+          var idx = tabs.indexOf(btn);
+          if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+            e.preventDefault();
+            // RTL: ArrowRight = previous, ArrowLeft = next
+            var dir = e.key === 'ArrowLeft' ? 1 : -1;
+            var next = tabs[(idx + dir + tabs.length) % tabs.length];
+            next.focus();
+            switchToTab(next.id);
+          }
+        });
+      });
+
       // ממיר מחרוזת תאריך בפורמט DD/MM/YYYY לאובייקט Date
       function parseReportDate(str) {
         if (!str) return null;
@@ -212,7 +250,7 @@
       document.addEventListener('keydown', function(e) {
         if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
           const active = document.activeElement;
-          const findingForm = document.getElementById('section-finding-form').parentElement;
+          const findingForm = document.getElementById('panel-finding-form');
           if (findingForm && findingForm.contains(active)) {
             e.preventDefault();
             handleAddOrUpdateFinding();
@@ -351,12 +389,20 @@
         resetEditState();
         renderFindingsTable();
 
+        if (findings.length) switchToTab('tab-findings-list');
+
         statusMsg.textContent =
           'נטען דו"ח קיים' +
           (m.reportDate ? ' (תאריך דו"ח: ' + m.reportDate + ').' : '.');
       }
 
       function renderFindingsTable() {
+        // Update findings count badge on tab
+        var findingsTab = document.getElementById('tab-findings-list');
+        if (findingsTab) {
+          findingsTab.textContent = 'ממצאים שנוספו' + (findings.length ? ' (' + findings.length + ')' : '');
+        }
+
         if (!findings.length) {
           tableWrapper.innerHTML = '<p class="muted">אין עדיין ממצאים.</p>';
           genBtn.disabled = true;
@@ -516,10 +562,8 @@
         editState.textContent = 'מצב: עריכת ממצא #' + (idx + 1);
 
         // Scroll to form and focus title
-        var formDetails = document.getElementById('section-finding-form').closest('details');
-        if (formDetails && !formDetails.open) formDetails.open = true;
-        document.getElementById('section-finding-form').scrollIntoView({ behavior: 'smooth' });
-        setTimeout(() => document.getElementById('f-title').focus(), 300);
+        switchToTab('tab-finding-form');
+        setTimeout(() => document.getElementById('f-title').focus(), 100);
       }
 
       function getPriorityFromUI() {
@@ -2054,6 +2098,7 @@
 
             renderFindingsTable();
             prefillId();
+            switchToTab('tab-findings-list');
             statusMsg.textContent = 'יובאו ' + count + ' ממצאים מ-CSV' + (isWiz ? ' (Wiz format)' : '') + '. סה״כ: ' + findings.length;
           } catch (e) {
             console.error(e);
