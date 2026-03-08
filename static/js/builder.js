@@ -43,7 +43,16 @@
           var panel = document.getElementById(panelId);
           if (panel) panel.classList.add('active');
         }
+        try { localStorage.setItem('cspm_active_tab', tabId); } catch(e) {}
       }
+
+      // Restore last active tab
+      (function() {
+        var saved = localStorage.getItem('cspm_active_tab');
+        if (saved && document.getElementById(saved)) {
+          switchToTab(saved);
+        }
+      })();
 
       document.querySelectorAll('.tab-btn').forEach(function(btn) {
         btn.addEventListener('click', function() {
