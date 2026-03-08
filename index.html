@@ -251,6 +251,12 @@
             <textarea id="f-recs" rows="2" placeholder="לבטל גישה ציבורית...&#10;להפעיל הצפנה..."></textarea>
           </div>
           <div class="col">
+            <label for="f-owner">בעלים / צוות אחראי</label>
+            <input type="text" id="f-owner" placeholder="שם הצוות / בעל האחריות">
+          </div>
+        </div>
+        <div class="row">
+          <div class="col">
             <label for="f-priority-select">עדיפות טיפול</label>
             <select id="f-priority-select">
               <option value="">-- לא צוין --</option>
@@ -332,6 +338,7 @@
             <option value="נמוכה (60–120 ימים)">נמוכה</option>
             <option value="למעקב">למעקב</option>
           </select>
+          <input type="text" id="batch-owner" class="filter-input" placeholder="שנה בעלים..." style="max-width:150px;">
           <button class="btn btn-danger btn-sm" id="btn-batch-delete">מחק נבחרים</button>
         </div>
         <button class="btn btn-secondary btn-sm" id="btn-sort-severity">מיין לפי חומרה ↓</button>

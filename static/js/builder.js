@@ -494,6 +494,7 @@
               ? f.recs
               : splitLines(f.recs || ''),
             priority: f.priority || '',
+            owner: f.owner || '',
             evidence: Array.isArray(f.evidence) ? f.evidence : (f.evidence ? [f.evidence] : [])
           });
         });
@@ -549,7 +550,7 @@
 
               let html = '<table><caption class="muted small-text">רשימת ממצאים שנוספו לדו"ח' + filterNote + '</caption><thead><tr>' +
                 '<th><input type="checkbox" id="finding-check-all" class="finding-check"></th>' +
-                '<th>#</th><th>מזהה</th><th>קטגוריה</th><th>כותרת</th><th>חומרה</th><th>מדיניות / תקנים</th><th>הוכחה</th><th>פעולות</th>' +
+                '<th>#</th><th>מזהה</th><th>קטגוריה</th><th>כותרת</th><th>חומרה</th><th>בעלים</th><th>מדיניות / תקנים</th><th>הוכחה</th><th>פעולות</th>' +
                 '</tr></thead><tbody>';
 
               filtered.forEach(function(item) {
@@ -570,6 +571,7 @@
                   '<td><span class="tag-inline">' + (f.category || 'CSPM') + '</span></td>' +
                   '<td class="inline-editable" data-field="title" data-idx="' + idx + '">' + (f.title || '') + '</td>' +
                   '<td class="inline-editable" data-field="severity" data-idx="' + idx + '"><span class="severity-chip ' + sev.class + '">' + sev.text + '</span></td>' +
+                  '<td class="inline-editable" data-field="owner" data-idx="' + idx + '">' + (f.owner || '<span class="muted">—</span>') + '</td>' +
                   '<td>' + policiesInline + '</td>' +
                   '<td>' + evidenceText + '</td>' +
                   '<td>' +
@@ -629,8 +631,8 @@
                     findings[idx].severity = sevOrder[(cur + 1) % sevOrder.length];
                     renderFindingsTable();
                     autoSave();
-                  } else if (field === 'title') {
-                    var current = findings[idx].title || '';
+                  } else if (field === 'title' || field === 'owner') {
+                    var current = field === 'title' ? (findings[idx].title || '') : (findings[idx].owner || '');
                     var input = document.createElement('input');
                     input.type = 'text';
                     input.value = current;
@@ -638,13 +640,18 @@
                     input.style.fontSize = '12px';
                     input.style.padding = '4px 8px';
                     input.style.width = '100%';
+                    if (field === 'owner') input.placeholder = 'צוות / בעלים...';
                     cell.textContent = '';
                     cell.appendChild(input);
                     input.focus();
                     input.select();
                     function finishEdit() {
                       var val = input.value.trim();
-                      if (val) findings[idx].title = val;
+                      if (field === 'title') {
+                        if (val) findings[idx].title = val;
+                      } else {
+                        findings[idx].owner = val;
+                      }
                       renderFindingsTable();
                       autoSave();
                     }
@@ -719,6 +726,24 @@
         autoSave();
         showToast('עדיפות עודכנה ל-' + indices.length + ' ממצאים', 'success');
       });
+
+      // Batch owner change
+      (function() {
+        var batchOwnerInput = document.getElementById('batch-owner');
+        batchOwnerInput.addEventListener('keydown', function(e) {
+          if (e.key === 'Enter') {
+            var newOwner = this.value.trim();
+            if (!newOwner) return;
+            var indices = getSelectedFindingIndices();
+            if (!indices.length) return;
+            indices.forEach(function(idx) { if (findings[idx]) findings[idx].owner = newOwner; });
+            this.value = '';
+            renderFindingsTable();
+            autoSave();
+            showToast('בעלים עודכן ל-' + indices.length + ' ממצאים', 'success');
+          }
+        });
+      })();
 
       // Batch delete
       document.getElementById('btn-batch-delete').addEventListener('click', function() {
@@ -795,6 +820,7 @@
           { label: 'פרטים טכניים', value: Array.isArray(f.technical) ? f.technical.join('\n') : f.technical },
           { label: 'מדיניות / תקנים', value: Array.isArray(f.policies) ? f.policies.join('\n') : f.policies },
           { label: 'המלצות', value: Array.isArray(f.recs) ? f.recs.join('\n') : f.recs },
+          { label: 'בעלים / צוות אחראי', value: f.owner },
           { label: 'עדיפות', value: f.priority }
         ];
 
@@ -911,6 +937,7 @@
         document.getElementById('f-technical').value = '';
         document.getElementById('f-policies').value = '';
         document.getElementById('f-recs').value = '';
+        document.getElementById('f-owner').value = '';
         prioritySelect.value = '';
         priorityCustom.value = '';
         evidenceInput.value = '';
@@ -934,6 +961,7 @@
         document.getElementById('f-technical').value = f.technical.join('\\n');
         document.getElementById('f-policies').value = f.policies.join('\\n');
         document.getElementById('f-recs').value = f.recs.join('\\n');
+        document.getElementById('f-owner').value = f.owner || '';
 
         const knownPriorities = ['', 'מיידי (0–7 ימים)', 'גבוהה (עד 30 ימים)', 'בינונית (30–60 ימים)', 'נמוכה (60–120 ימים)', 'למעקב'];
         if (knownPriorities.includes(f.priority)) {
@@ -1093,6 +1121,7 @@
         const policies    = splitLines(document.getElementById('f-policies').value);
         const recs        = splitLines(document.getElementById('f-recs').value);
         const priority    = getPriorityFromUI();
+        const owner       = document.getElementById('f-owner').value.trim();
 
         if (!id || !title) {
           alert('מזהה וכותרת הם שדות חובה.');
@@ -1120,6 +1149,7 @@
             policies,
             recs,
             priority,
+            owner,
             evidence
           };
 
@@ -1569,7 +1599,7 @@
               '<td>' + linkOpen + escapeHtml(f.id)   + linkClose + '</td>' +
               '<td>' + linkOpen + escapeHtml(f.title)+ linkClose + '</td>' +
               '<td>' + sevText(f.severity) + '</td>' +
-              '<td>' + t.ownerPlaceholder + '</td>' +
+              '<td>' + (escapeHtml(f.owner) || t.ownerPlaceholder) + '</td>' +
               '<td>' + dueDate + '</td>' +
               '<td>' + t.statusOpen + '</td>' +
             '</tr>'
@@ -2460,6 +2490,7 @@
                   policies: policies,
                   recs: recs,
                   priority: '',
+                  owner: '',
                   evidence: []
                 });
                 count++;
@@ -2472,6 +2503,7 @@
               var colDesc = headers.findIndex(function(h) { return h === 'description' || h === 'תיאור' || h === 'details'; });
               var colImpact = headers.findIndex(function(h) { return h === 'impact' || h === 'השפעה'; });
               var colRec = headers.findIndex(function(h) { return h === 'recommendation' || h === 'remediation' || h === 'המלצה' || h === 'fix'; });
+              var colOwner = headers.findIndex(function(h) { return h === 'owner' || h === 'בעלים' || h === 'team' || h === 'צוות'; });
 
               if (colTitle === -1) {
                 alert('לא נמצאה עמודת כותרת (title/name/issue) ב-CSV.');
@@ -2493,6 +2525,7 @@
                   policies: [],
                   recs: colRec >= 0 ? splitLines(r[colRec] || '') : [],
                   priority: '',
+                  owner: colOwner >= 0 ? (r[colOwner] || '') : '',
                   evidence: []
                 });
                 count++;
@@ -4147,6 +4180,11 @@
         var notes = (issue.notes || []).map(function(n) { return n.text || ''; }).filter(Boolean);
         if (notes.length) recs = notes.join('\n');
 
+        var owner = '';
+        var projects = (issue.projects || []).map(function(p) { return p.name; }).filter(Boolean);
+        if (projects.length) owner = projects.join(', ');
+        else if (entity.subscriptionName) owner = entity.subscriptionName;
+
         findings.push({
           id: id,
           category: cat,
@@ -4158,6 +4196,7 @@
           policies: [],
           recs: splitLines(recs),
           priority: '',
+          owner: owner,
           evidence: []
         });
       }
@@ -4198,6 +4237,7 @@
           policies: policies,
           recs: [],
           priority: '',
+          owner: sub.name || '',
           evidence: []
         });
       }
@@ -4232,6 +4272,7 @@
           policies: [],
           recs: splitLines(recs.join('\n')),
           priority: '',
+          owner: projects.length ? projects.join(', ') : '',
           evidence: []
         });
       }
@@ -4256,7 +4297,9 @@
           severity: sev,
           description: splitLines(rule.description || ''),
           impact: [], technical: splitLines(technical.join('\n')),
-          policies: [], recs: [], priority: '', evidence: []
+          policies: [], recs: [], priority: '',
+          owner: sub.name || '',
+          evidence: []
         });
       }
 
@@ -4279,7 +4322,9 @@
           severity: sev,
           description: splitLines('זוהה מידע רגיש מסוג ' + (classifier.name || item.name || 'לא ידוע')),
           impact: [], technical: splitLines(technical.join('\n')),
-          policies: [], recs: [], priority: '', evidence: []
+          policies: [], recs: [], priority: '',
+          owner: account.name || '',
+          evidence: []
         });
       }
 
@@ -4302,7 +4347,9 @@
           severity: sev,
           description: splitLines('זוהה סוד חשוף מסוג ' + (item.type || 'לא ידוע')),
           impact: [], technical: splitLines(technical.join('\n')),
-          policies: [], recs: [], priority: '', evidence: []
+          policies: [], recs: [], priority: '',
+          owner: res.name || res.cloudPlatform || '',
+          evidence: []
         });
       }
 
@@ -4328,7 +4375,9 @@
           description: splitLines(item.description || ''),
           impact: [], technical: splitLines(technical.join('\n')),
           policies: [], recs: splitLines(recs.join('\n')),
-          priority: '', evidence: []
+          priority: '',
+          owner: ca.name || '',
+          evidence: []
         });
       }
 
@@ -4349,7 +4398,9 @@
           severity: isPublic ? 'high' : 'medium',
           description: splitLines('חשיפת רשת של ' + (entity.name || 'משאב') + ' מ-' + (item.sourceIpRange || 'unknown')),
           impact: [], technical: splitLines(technical.join('\n')),
-          policies: [], recs: [], priority: '', evidence: []
+          policies: [], recs: [], priority: '',
+          owner: entity.name || '',
+          evidence: []
         });
       }
 
@@ -4372,7 +4423,9 @@
           severity: sev,
           description: splitLines(rule.description || ''),
           impact: [], technical: splitLines(technical.join('\n')),
-          policies: [], recs: [], priority: '', evidence: []
+          policies: [], recs: [], priority: '',
+          owner: ca.name || '',
+          evidence: []
         });
       }
 
