@@ -973,6 +973,45 @@ def api_wizi_issues():
         return jsonify({"error": str(e)}), 502
 
 
+@app.route("/api/wizi/find-by-id", methods=["POST"])
+def api_wizi_find_by_id():
+    """Fetch a single finding from Wizi by its ID. Tries multiple query types."""
+    if not WIZI_CLIENT_ID or not WIZI_CLIENT_SECRET:
+        return jsonify({"error": "Wizi integration not configured"}), 501
+
+    data = request.get_json(silent=True) or {}
+    finding_id = (data.get("id") or "").strip()
+    if not finding_id:
+        return jsonify({"error": "No finding ID provided"}), 400
+
+    # Try each query type with an ID filter
+    queries = [
+        ("issues", "IssueFilters", "issues", WIZI_ISSUES_QUERY),
+        ("configurationFindings", "ConfigurationFindingFilters", "configurationFindings", WIZI_CONFIG_FINDINGS_QUERY),
+        ("vulnerabilityFindings", "VulnerabilityFindingFilters", "vulnerabilityFindings", WIZI_VULN_FINDINGS_QUERY),
+        ("hostConfigurationRuleAssessments", "HostConfigurationRuleAssessmentFilters", "hostConfigurationRuleAssessments", WIZI_HOST_CONFIG_QUERY),
+        ("dataFindingsV2", "DataFindingFiltersV2", "dataFindingsV2", WIZI_DATA_FINDINGS_QUERY),
+        ("secretInstances", "SecretInstanceFilters", "secretInstances", WIZI_SECRET_INSTANCES_QUERY),
+        ("excessiveAccessFindings", "ExcessiveAccessFindingFilters", "excessiveAccessFindings", WIZI_EXCESSIVE_ACCESS_QUERY),
+        ("networkExposures", "NetworkExposureFilters", "networkExposures", WIZI_NETWORK_EXPOSURE_QUERY),
+        ("inventoryFindings", "InventoryFindingFilters", "inventoryFindings", WIZI_INVENTORY_FINDINGS_QUERY),
+    ]
+
+    for qt, filter_type, root_key, gql in queries:
+        try:
+            variables: Dict[str, Any] = {"first": 1, "filterBy": {"id": finding_id}}
+            result = _wizi_graphql(gql, variables)
+            if "errors" in result:
+                continue
+            nodes = result.get("data", {}).get(root_key, {}).get("nodes", [])
+            if nodes:
+                return jsonify({"queryType": qt, "node": nodes[0]})
+        except Exception:
+            continue
+
+    return jsonify({"error": "Finding not found", "id": finding_id}), 404
+
+
 @app.route("/api/wizi/status")
 def api_wizi_status():
     """Check if Wizi integration is configured and reachable."""

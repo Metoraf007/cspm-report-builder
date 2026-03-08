@@ -26,6 +26,64 @@
       const importJsonBtn   = document.getElementById('btn-import-json');
       const importJsonInput = document.getElementById('input-import-json');
 
+      // ── Toast notifications ──
+      var toastContainer = document.getElementById('toast-container');
+      function showToast(message, type) {
+        type = type || 'info';
+        var el = document.createElement('div');
+        el.className = 'toast toast-' + type;
+        el.textContent = message;
+        toastContainer.appendChild(el);
+        setTimeout(function() { if (el.parentNode) el.parentNode.removeChild(el); }, 3200);
+      }
+
+      // ── Progress stepper ──
+      var stepperSteps = document.querySelectorAll('.progress-stepper .step');
+      var stepFindingsCount = document.getElementById('step-findings-count');
+
+      function updateStepper() {
+        var hasDetails = !!(document.getElementById('report-client').value.trim() || document.getElementById('report-env').value.trim());
+        var hasFindings = findings.length > 0;
+
+        stepperSteps.forEach(function(s) {
+          s.classList.remove('done', 'active');
+          var step = s.getAttribute('data-step');
+          if (step === 'details' && hasDetails) s.classList.add('done');
+          if (step === 'findings' && hasFindings) s.classList.add('done');
+        });
+
+        if (stepFindingsCount) {
+          stepFindingsCount.textContent = hasFindings ? findings.length : '';
+        }
+
+        // Highlight current tab's step
+        var activeTab = document.querySelector('.tab-btn.active');
+        if (activeTab) {
+          var tabId = activeTab.id;
+          var stepMap = {
+            'tab-report-details': 'details',
+            'tab-finding-form': 'findings',
+            'tab-findings-list': 'review',
+            'tab-export': 'export'
+          };
+          var activeStep = stepMap[tabId];
+          if (activeStep) {
+            stepperSteps.forEach(function(s) {
+              if (s.getAttribute('data-step') === activeStep) s.classList.add('active');
+            });
+          }
+        }
+      }
+
+      // Click stepper steps to navigate
+      stepperSteps.forEach(function(s) {
+        s.addEventListener('click', function() {
+          var step = s.getAttribute('data-step');
+          var tabMap = { details: 'tab-report-details', findings: 'tab-finding-form', review: 'tab-findings-list', export: 'tab-export' };
+          if (tabMap[step]) switchToTab(tabMap[step]);
+        });
+      });
+
       // ── Tab navigation ──
       function switchToTab(tabId) {
         document.querySelectorAll('.tab-btn').forEach(function(btn) {
@@ -44,6 +102,7 @@
           if (panel) panel.classList.add('active');
         }
         try { localStorage.setItem('cspm_active_tab', tabId); } catch(e) {}
+        updateStepper();
       }
 
       // Restore last active tab
@@ -404,98 +463,248 @@
       }
 
       function renderFindingsTable() {
-        // Update findings count badge on tab
-        var findingsTab = document.getElementById('tab-findings-list');
-        if (findingsTab) {
-          findingsTab.textContent = 'ממצאים שנוספו' + (findings.length ? ' (' + findings.length + ')' : '');
-        }
-
-        if (!findings.length) {
-          tableWrapper.innerHTML = '<p class="muted">אין עדיין ממצאים.</p>';
-          genBtn.disabled = true;
-          dlBtn.disabled  = true;
-          return;
-        }
-
-        let html = '<table><caption class="muted small-text">רשימת ממצאים שנוספו לדו"ח</caption><thead><tr>' +
-          '<th>#</th><th>מזהה</th><th>קטגוריה</th><th>כותרת</th><th>חומרה</th><th>מדיניות / תקנים</th><th>הוכחה</th><th>פעולות</th>' +
-          '</tr></thead><tbody>';
-
-        findings.forEach((f, idx) => {
-          const sev = severityMap[f.severity] || severityMap.medium;
-          const catLabel = categoryMap[f.category] || f.category || 'CSPM';
-          const policiesInline = f.policies.length
-            ? f.policies.map(p => '<span class="tag-inline">' + p + '</span>').join(' ')
-            : '<span class="muted">—</span>';
-
-          var evidenceArr = Array.isArray(f.evidence) ? f.evidence : (f.evidence ? [f.evidence] : []);
-          const evidenceText = evidenceArr.length ? '✓ ' + evidenceArr.length + ' תמונ' + (evidenceArr.length === 1 ? 'ה' : 'ות') : '<span class="muted">אין</span>';
-
-          html += '<tr>' +
-            '<td>' + (idx + 1) + '</td>' +
-            '<td>' + (f.id || '') + '</td>' +
-            '<td><span class="tag-inline">' + (f.category || 'CSPM') + '</span></td>' +
-            '<td>' + (f.title || '') + '</td>' +
-            '<td><span class="severity-chip ' + sev.class + '">' + sev.text + '</span></td>' +
-            '<td>' + policiesInline + '</td>' +
-            '<td>' + evidenceText + '</td>' +
-            '<td>' +
-              '<button class="btn btn-secondary btn-sm" data-action="edit" data-idx="' + idx + '" aria-label="ערוך ממצא ' + (f.id || '') + '">ערוך</button>' +
-              '<button class="btn btn-secondary btn-sm" data-action="dup" data-idx="' + idx + '" aria-label="שכפל ממצא ' + (f.id || '') + '">שכפל</button>' +
-              '<button class="btn btn-danger btn-sm" data-action="delete" data-idx="' + idx + '" aria-label="מחק ממצא ' + (f.id || '') + '">מחק</button>' +
-              '<button class="btn btn-secondary btn-sm" data-action="up" data-idx="' + idx + '" aria-label="העבר למעלה ממצא ' + (f.id || '') + '">▲</button>' +
-              '<button class="btn btn-secondary btn-sm" data-action="down" data-idx="' + idx + '" aria-label="העבר למטה ממצא ' + (f.id || '') + '">▼</button>' +
-            '</td>' +
-            '</tr>';
-        });
-
-        html += '</tbody></table>';
-        tableWrapper.innerHTML = html;
-        genBtn.disabled = false;
-        dlBtn.disabled  = false;
-
-        tableWrapper.querySelectorAll('button[data-action]').forEach(btn => {
-          btn.addEventListener('click', function() {
-            const action = this.getAttribute('data-action');
-            const idx = parseInt(this.getAttribute('data-idx'), 10);
-            if (Number.isNaN(idx)) return;
-
-            if (action === 'delete') {
-              findings.splice(idx, 1);
-              if (editingIndex === idx) resetEditState();
-              else if (editingIndex !== null && idx < editingIndex) editingIndex--;
-              renderFindingsTable();
-            } else if (action === 'edit') {
-              startEditFinding(idx);
-            } else if (action === 'dup') {
-              const orig = findings[idx];
-              const dup = JSON.parse(JSON.stringify(orig));
-              dup.id = generateNextId(dup.category || 'CSPM');
-              findings.splice(idx + 1, 0, dup);
-              statusMsg.textContent = 'שוכפל ממצא ' + orig.id + ' → ' + dup.id;
-              renderFindingsTable();
-            } else if (action === 'up') {
-              if (idx > 0) {
-                const tmp = findings[idx - 1];
-                findings[idx - 1] = findings[idx];
-                findings[idx] = tmp;
-                if (editingIndex === idx) editingIndex = idx - 1;
-                else if (editingIndex === idx - 1) editingIndex = idx;
-                renderFindingsTable();
+              // Update findings count badge on tab
+              var findingsTab = document.getElementById('tab-findings-list');
+              if (findingsTab) {
+                findingsTab.textContent = 'ממצאים שנוספו' + (findings.length ? ' (' + findings.length + ')' : '');
               }
-            } else if (action === 'down') {
-              if (idx < findings.length - 1) {
-                const tmp = findings[idx + 1];
-                findings[idx + 1] = findings[idx];
-                findings[idx] = tmp;
-                if (editingIndex === idx) editingIndex = idx + 1;
-                else if (editingIndex === idx + 1) editingIndex = idx;
-                renderFindingsTable();
+              updateStepper();
+
+              var batchActions = document.getElementById('batch-actions');
+
+              if (!findings.length) {
+                tableWrapper.innerHTML = '<div class="empty-state">' +
+                  '<div class="empty-state-icon">📋</div>' +
+                  '<div class="empty-state-text">אין עדיין ממצאים בדו"ח</div>' +
+                  '<div class="empty-state-actions">' +
+                    '<button class="btn btn-primary btn-sm" onclick="document.getElementById(\'tab-finding-form\').click()">➕ הוסף ממצא ידנית</button>' +
+                    '<button class="btn btn-secondary btn-sm" onclick="document.getElementById(\'tab-wizi\').click()">🔍 ייבא מ-Wizi</button>' +
+                    '<button class="btn btn-secondary btn-sm" onclick="document.getElementById(\'btn-import-csv\').click()">📄 ייבא CSV</button>' +
+                  '</div>' +
+                '</div>';
+                genBtn.disabled = true;
+                dlBtn.disabled  = true;
+                if (batchActions) batchActions.style.display = 'none';
+                return;
               }
+
+              // Apply filters
+              var searchText = (document.getElementById('findings-search').value || '').toLowerCase();
+              var filterCat = document.getElementById('findings-filter-category').value;
+              var filterSev = document.getElementById('findings-filter-severity').value;
+
+              var filtered = [];
+              findings.forEach(function(f, idx) {
+                if (searchText && (f.title || '').toLowerCase().indexOf(searchText) < 0 && (f.id || '').toLowerCase().indexOf(searchText) < 0) return;
+                if (filterCat && f.category !== filterCat) return;
+                if (filterSev && f.severity !== filterSev) return;
+                filtered.push({ f: f, idx: idx });
+              });
+
+              var filterNote = filtered.length < findings.length ? ' (מציג ' + filtered.length + ' מתוך ' + findings.length + ')' : '';
+
+              let html = '<table><caption class="muted small-text">רשימת ממצאים שנוספו לדו"ח' + filterNote + '</caption><thead><tr>' +
+                '<th><input type="checkbox" id="finding-check-all" class="finding-check"></th>' +
+                '<th>#</th><th>מזהה</th><th>קטגוריה</th><th>כותרת</th><th>חומרה</th><th>מדיניות / תקנים</th><th>הוכחה</th><th>פעולות</th>' +
+                '</tr></thead><tbody>';
+
+              filtered.forEach(function(item) {
+                var f = item.f;
+                var idx = item.idx;
+                const sev = severityMap[f.severity] || severityMap.medium;
+                const policiesInline = f.policies.length
+                  ? f.policies.map(p => '<span class="tag-inline">' + p + '</span>').join(' ')
+                  : '<span class="muted">—</span>';
+
+                var evidenceArr = Array.isArray(f.evidence) ? f.evidence : (f.evidence ? [f.evidence] : []);
+                const evidenceText = evidenceArr.length ? '✓ ' + evidenceArr.length + ' תמונ' + (evidenceArr.length === 1 ? 'ה' : 'ות') : '<span class="muted">אין</span>';
+
+                html += '<tr data-idx="' + idx + '">' +
+                  '<td><input type="checkbox" class="finding-check finding-row-check" data-idx="' + idx + '"></td>' +
+                  '<td>' + (idx + 1) + '</td>' +
+                  '<td>' + (f.id || '') + '</td>' +
+                  '<td><span class="tag-inline">' + (f.category || 'CSPM') + '</span></td>' +
+                  '<td class="inline-editable" data-field="title" data-idx="' + idx + '">' + (f.title || '') + '</td>' +
+                  '<td class="inline-editable" data-field="severity" data-idx="' + idx + '"><span class="severity-chip ' + sev.class + '">' + sev.text + '</span></td>' +
+                  '<td>' + policiesInline + '</td>' +
+                  '<td>' + evidenceText + '</td>' +
+                  '<td>' +
+                    '<button class="btn btn-secondary btn-sm" data-action="edit" data-idx="' + idx + '" aria-label="ערוך ממצא ' + (f.id || '') + '">ערוך</button>' +
+                    '<button class="btn btn-secondary btn-sm" data-action="dup" data-idx="' + idx + '" aria-label="שכפל ממצא ' + (f.id || '') + '">שכפל</button>' +
+                    '<button class="btn btn-danger btn-sm" data-action="delete" data-idx="' + idx + '" aria-label="מחק ממצא ' + (f.id || '') + '">מחק</button>' +
+                    '<button class="btn btn-secondary btn-sm" data-action="up" data-idx="' + idx + '" aria-label="העבר למעלה ממצא ' + (f.id || '') + '">▲</button>' +
+                    '<button class="btn btn-secondary btn-sm" data-action="down" data-idx="' + idx + '" aria-label="העבר למטה ממצא ' + (f.id || '') + '">▼</button>' +
+                  '</td>' +
+                  '</tr>';
+              });
+
+              html += '</tbody></table>';
+              tableWrapper.innerHTML = html;
+              genBtn.disabled = false;
+              dlBtn.disabled  = false;
+
+              // Wire action buttons
+              tableWrapper.querySelectorAll('button[data-action]').forEach(btn => {
+                btn.addEventListener('click', function() {
+                  const action = this.getAttribute('data-action');
+                  const idx = parseInt(this.getAttribute('data-idx'), 10);
+                  if (Number.isNaN(idx)) return;
+
+                  if (action === 'delete') {
+                    findings.splice(idx, 1);
+                    if (editingIndex === idx) resetEditState();
+                    else if (editingIndex !== null && idx < editingIndex) editingIndex--;
+                    renderFindingsTable();
+                    showToast('ממצא נמחק', 'info');
+                  } else if (action === 'edit') {
+                    startEditFinding(idx);
+                  } else if (action === 'dup') {
+                    const orig = findings[idx];
+                    const dup = JSON.parse(JSON.stringify(orig));
+                    dup.id = generateNextId(dup.category || 'CSPM');
+                    findings.splice(idx + 1, 0, dup);
+                    renderFindingsTable();
+                    showToast('שוכפל ' + orig.id + ' → ' + dup.id, 'success');
+                  } else if (action === 'up') {
+                    if (idx > 0) {
+                      const tmp = findings[idx - 1];
+                      findings[idx - 1] = findings[idx];
+                      findings[idx] = tmp;
+                      if (editingIndex === idx) editingIndex = idx - 1;
+                      else if (editingIndex === idx - 1) editingIndex = idx;
+                      renderFindingsTable();
+                    }
+                  } else if (action === 'down') {
+                    if (idx < findings.length - 1) {
+                      const tmp = findings[idx + 1];
+                      findings[idx + 1] = findings[idx];
+                      findings[idx] = tmp;
+                      if (editingIndex === idx) editingIndex = idx + 1;
+                      else if (editingIndex === idx + 1) editingIndex = idx;
+                      renderFindingsTable();
+                    }
+                  }
+                });
+              });
+
+              // Wire inline edit (click severity chip to cycle, click title to edit)
+              tableWrapper.querySelectorAll('.inline-editable').forEach(function(cell) {
+                cell.addEventListener('click', function(e) {
+                  var idx = parseInt(cell.getAttribute('data-idx'), 10);
+                  var field = cell.getAttribute('data-field');
+                  if (Number.isNaN(idx) || !findings[idx]) return;
+
+                  if (field === 'severity') {
+                    e.stopPropagation();
+                    var sevOrder = ['critical', 'high', 'medium', 'low', 'info'];
+                    var cur = sevOrder.indexOf(findings[idx].severity);
+                    findings[idx].severity = sevOrder[(cur + 1) % sevOrder.length];
+                    renderFindingsTable();
+                    autoSave();
+                  } else if (field === 'title') {
+                    var current = findings[idx].title || '';
+                    var input = document.createElement('input');
+                    input.type = 'text';
+                    input.value = current;
+                    input.className = 'filter-input';
+                    input.style.fontSize = '12px';
+                    input.style.padding = '4px 8px';
+                    input.style.width = '100%';
+                    cell.textContent = '';
+                    cell.appendChild(input);
+                    input.focus();
+                    input.select();
+                    function finishEdit() {
+                      var val = input.value.trim();
+                      if (val) findings[idx].title = val;
+                      renderFindingsTable();
+                      autoSave();
+                    }
+                    input.addEventListener('blur', finishEdit);
+                    input.addEventListener('keydown', function(ke) {
+                      if (ke.key === 'Enter') { ke.preventDefault(); finishEdit(); }
+                      if (ke.key === 'Escape') { renderFindingsTable(); }
+                    });
+                  }
+                });
+              });
+
+              // Wire checkboxes for batch actions
+              var checkAll = document.getElementById('finding-check-all');
+              if (checkAll) {
+                checkAll.addEventListener('change', function() {
+                  var checked = this.checked;
+                  tableWrapper.querySelectorAll('.finding-row-check').forEach(function(cb) { cb.checked = checked; });
+                  updateBatchActions();
+                });
+              }
+              tableWrapper.querySelectorAll('.finding-row-check').forEach(function(cb) {
+                cb.addEventListener('change', updateBatchActions);
+              });
             }
-          });
+
+      // ── Batch actions ──
+      function getSelectedFindingIndices() {
+        var indices = [];
+        tableWrapper.querySelectorAll('.finding-row-check:checked').forEach(function(cb) {
+          indices.push(parseInt(cb.getAttribute('data-idx'), 10));
         });
+        return indices;
       }
+
+      function updateBatchActions() {
+        var selected = getSelectedFindingIndices();
+        var batchActions = document.getElementById('batch-actions');
+        var batchCount = document.getElementById('batch-count');
+        if (selected.length > 0) {
+          batchActions.style.display = '';
+          batchCount.textContent = selected.length + ' ממצאים נבחרו';
+        } else {
+          batchActions.style.display = 'none';
+        }
+      }
+
+      // Batch severity change
+      document.getElementById('batch-severity').addEventListener('change', function() {
+        var newSev = this.value;
+        if (!newSev) return;
+        var indices = getSelectedFindingIndices();
+        indices.forEach(function(idx) { if (findings[idx]) findings[idx].severity = newSev; });
+        this.value = '';
+        renderFindingsTable();
+        autoSave();
+        showToast('חומרה עודכנה ל-' + indices.length + ' ממצאים', 'success');
+      });
+
+      // Batch priority change
+      document.getElementById('batch-priority').addEventListener('change', function() {
+        var newPri = this.value;
+        if (!newPri) return;
+        var indices = getSelectedFindingIndices();
+        indices.forEach(function(idx) { if (findings[idx]) findings[idx].priority = newPri; });
+        this.value = '';
+        renderFindingsTable();
+        autoSave();
+        showToast('עדיפות עודכנה ל-' + indices.length + ' ממצאים', 'success');
+      });
+
+      // Batch delete
+      document.getElementById('btn-batch-delete').addEventListener('click', function() {
+        var indices = getSelectedFindingIndices().sort(function(a, b) { return b - a; });
+        if (!indices.length) return;
+        if (!confirm('למחוק ' + indices.length + ' ממצאים?')) return;
+        indices.forEach(function(idx) { findings.splice(idx, 1); });
+        editingIndex = null;
+        renderFindingsTable();
+        autoSave();
+        showToast(indices.length + ' ממצאים נמחקו', 'info');
+      });
+
+      // Findings filter listeners
+      document.getElementById('findings-search').addEventListener('input', renderFindingsTable);
+      document.getElementById('findings-filter-category').addEventListener('change', renderFindingsTable);
+      document.getElementById('findings-filter-severity').addEventListener('change', renderFindingsTable);
+
 
       function resetEditState() {
         editingIndex = null;
@@ -729,10 +938,10 @@
 
           if (editingIndex === null) {
             findings.push(newFinding);
-            statusMsg.textContent = 'נוסף ממצא. סה״כ: ' + findings.length;
+            showToast('נוסף ממצא ' + newFinding.id + '. סה״כ: ' + findings.length, 'success');
           } else {
             findings[editingIndex] = newFinding;
-            statusMsg.textContent = 'עודכן ממצא #' + (editingIndex + 1);
+            showToast('עודכן ממצא ' + newFinding.id, 'success');
             resetEditState();
           }
 
@@ -2107,6 +2316,7 @@
             prefillId();
             switchToTab('tab-findings-list');
             statusMsg.textContent = 'יובאו ' + count + ' ממצאים מ-CSV' + (isWiz ? ' (Wiz format)' : '') + '. סה״כ: ' + findings.length;
+            showToast('יובאו ' + count + ' ממצאים מ-CSV', 'success');
           } catch (e) {
             console.error(e);
             alert('שגיאה בקריאת CSV.');
@@ -2235,6 +2445,7 @@
 
       // Restore on load
       autoRestore();
+      updateStepper();
 
       // --- Report defaults (save/load profile) ---
       const DEFAULTS_KEY = 'cspm_report_defaults';
@@ -2352,9 +2563,11 @@
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
             statusMsg.textContent = 'PDF נוצר והורד בהצלחה.';
+            showToast('PDF נוצר והורד בהצלחה', 'success');
             refreshOutputsList();
           } catch (e) {
             statusMsg.textContent = 'שגיאה ביצירת PDF: ' + e.message;
+            showToast('שגיאה ביצירת PDF', 'error');
           } finally {
             renderPdfBtn.disabled = !findings.length;
           }
@@ -3446,8 +3659,83 @@
         prefillId();
         autoSave();
         switchToTab('tab-findings-list');
-        statusMsg.textContent = 'יובאו ' + imported + ' ממצאים מ-Wizi. סה"כ: ' + findings.length;
+        showToast('יובאו ' + imported + ' ממצאים מ-Wizi', 'success');
       });
+
+      // ── Fetch by Wizi finding ID ──
+      var wiziFindIdInput = document.getElementById('wizi-find-id');
+      var wiziFindIdBtn = document.getElementById('btn-wizi-find-by-id');
+      var wiziFindIdStatus = document.getElementById('wizi-find-id-status');
+
+      if (wiziFindIdBtn) {
+        wiziFindIdBtn.addEventListener('click', function() {
+          var findingId = (wiziFindIdInput.value || '').trim();
+          if (!findingId) {
+            wiziFindIdStatus.textContent = 'הזן מזהה ממצא.';
+            return;
+          }
+
+          wiziFindIdBtn.disabled = true;
+          wiziFindIdStatus.textContent = 'מחפש ממצא...';
+
+          fetch('/api/wizi/find-by-id', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: findingId })
+          })
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            if (data.error) {
+              wiziFindIdStatus.textContent = 'לא נמצא: ' + data.error;
+              showToast('ממצא לא נמצא', 'warning');
+              return;
+            }
+
+            var qt = data.queryType;
+            var node = data.node;
+            var importers = {
+              issues: importIssueFinding,
+              configurationFindings: importConfigFinding,
+              vulnerabilityFindings: importVulnFinding,
+              hostConfigurationRuleAssessments: importHostConfigFinding,
+              dataFindingsV2: importDataFinding,
+              secretInstances: importSecretFinding,
+              excessiveAccessFindings: importExcessiveAccessFinding,
+              networkExposures: importNetworkExposureFinding,
+              inventoryFindings: importInventoryFinding
+            };
+            var fn = importers[qt] || importIssueFinding;
+            fn(node);
+
+            renderFindingsTable();
+            prefillId();
+            autoSave();
+            wiziFindIdInput.value = '';
+            var typeLabels = {
+              issues: 'Issue', configurationFindings: 'CSPM',
+              vulnerabilityFindings: 'VULN', hostConfigurationRuleAssessments: 'HSPM',
+              dataFindingsV2: 'DSPM', secretInstances: 'SECR',
+              excessiveAccessFindings: 'EAPM', networkExposures: 'NEXP',
+              inventoryFindings: 'EOLM'
+            };
+            var label = typeLabels[qt] || qt;
+            wiziFindIdStatus.textContent = '✓ יובא ממצא ' + label + ' — ' + (node.name || node.id || findingId);
+            showToast('ממצא ' + label + ' יובא בהצלחה', 'success');
+          })
+          .catch(function(e) {
+            wiziFindIdStatus.textContent = 'שגיאת רשת: ' + e.message;
+            showToast('שגיאה בשליפת ממצא', 'error');
+          })
+          .finally(function() {
+            wiziFindIdBtn.disabled = false;
+          });
+        });
+
+        // Enter key in the ID input
+        wiziFindIdInput.addEventListener('keydown', function(e) {
+          if (e.key === 'Enter') { e.preventDefault(); wiziFindIdBtn.click(); }
+        });
+      }
 
       function importIssueFinding(issue) {
         var rules = issue.sourceRules || [];

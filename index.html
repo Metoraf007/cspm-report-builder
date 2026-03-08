@@ -7,10 +7,24 @@
   <link rel="stylesheet" href="/static/css/builder.css">
 </head>
 <body>
+  <!-- Toast container -->
+  <div id="toast-container" aria-live="polite"></div>
+
   <div class="app-container">
     <div class="app-header">
       <h1>Wizi — CSPM Report Builder</h1>
       <span id="autosave-indicator" class="autosave-indicator"></span>
+    </div>
+
+    <!-- Progress stepper -->
+    <div class="progress-stepper" id="progress-stepper">
+      <div class="step" data-step="details"><span class="step-icon">①</span> פרטי דו"ח</div>
+      <div class="step-arrow">→</div>
+      <div class="step" data-step="findings"><span class="step-icon">②</span> ממצאים <span class="step-badge" id="step-findings-count"></span></div>
+      <div class="step-arrow">→</div>
+      <div class="step" data-step="review"><span class="step-icon">③</span> סקירה</div>
+      <div class="step-arrow">→</div>
+      <div class="step" data-step="export"><span class="step-icon">④</span> ייצוא</div>
     </div>
     <p class="muted" style="text-align:center;">
       ממלאים פרטי דו"ח, מוסיפים ממצאים (כולל הוכחה כתמונה), אפשר לערוך/למחוק/להזיז. בסוף מייצרים דו"ח HTML או PDF.
@@ -231,6 +245,51 @@
     <!-- Panel: רשימת הממצאים -->
     <section class="tab-panel" id="panel-findings-list" role="tabpanel" aria-labelledby="tab-findings-list">
       <div class="section-body">
+        <!-- Filter bar -->
+        <div class="findings-filter-bar">
+          <input type="text" id="findings-search" placeholder="🔍 חיפוש לפי כותרת / מזהה..." class="filter-input">
+          <select id="findings-filter-category" class="filter-select">
+            <option value="">כל הקטגוריות</option>
+            <option value="CSPM">CSPM</option>
+            <option value="KSPM">KSPM</option>
+            <option value="DSPM">DSPM</option>
+            <option value="VULN">VULN</option>
+            <option value="NEXP">NEXP</option>
+            <option value="EAPM">EAPM</option>
+            <option value="HSPM">HSPM</option>
+            <option value="SECR">SECR</option>
+            <option value="EOLM">EOLM</option>
+          </select>
+          <select id="findings-filter-severity" class="filter-select">
+            <option value="">כל החומרות</option>
+            <option value="critical">קריטי</option>
+            <option value="high">גבוה</option>
+            <option value="medium">בינוני</option>
+            <option value="low">נמוך</option>
+            <option value="info">מידע</option>
+          </select>
+        </div>
+        <!-- Batch actions -->
+        <div class="batch-actions" id="batch-actions" style="display:none;">
+          <span id="batch-count" class="muted small-text"></span>
+          <select id="batch-severity" class="filter-select" style="max-width:120px;">
+            <option value="">שנה חומרה</option>
+            <option value="critical">קריטי</option>
+            <option value="high">גבוה</option>
+            <option value="medium">בינוני</option>
+            <option value="low">נמוך</option>
+            <option value="info">מידע</option>
+          </select>
+          <select id="batch-priority" class="filter-select" style="max-width:160px;">
+            <option value="">שנה עדיפות</option>
+            <option value="מיידי (0–7 ימים)">מיידי</option>
+            <option value="גבוהה (עד 30 ימים)">גבוהה</option>
+            <option value="בינונית (30–60 ימים)">בינונית</option>
+            <option value="נמוכה (60–120 ימים)">נמוכה</option>
+            <option value="למעקב">למעקב</option>
+          </select>
+          <button class="btn btn-danger btn-sm" id="btn-batch-delete">מחק נבחרים</button>
+        </div>
         <button class="btn btn-secondary btn-sm" id="btn-sort-severity">מיין לפי חומרה ↓</button>
         <button class="btn btn-danger btn-sm" id="btn-clear-all-findings">מחק הכל</button>
         <span class="kbd-hint">J/K לניווט, E לעריכה, D למחיקה</span>
@@ -272,6 +331,20 @@
     <!-- Panel: Wizi integration -->
     <section class="tab-panel" id="panel-wizi" role="tabpanel" aria-labelledby="tab-wizi">
       <div class="section-body">
+        <!-- Quick fetch by ID -->
+        <div class="wizi-quick-add">
+          <label for="wizi-find-id">🔎 שליפה לפי מזהה ממצא (Wizi ID)</label>
+          <div class="row" style="align-items:end;">
+            <div class="col">
+              <input type="text" id="wizi-find-id" placeholder="הדבק מזהה ממצא מ-Wizi (למשל: abc123-def456)..." dir="ltr">
+            </div>
+            <div class="col" style="max-width:140px;">
+              <button class="btn btn-primary btn-sm" id="btn-wizi-find-by-id">שלוף וייבא</button>
+            </div>
+          </div>
+          <span id="wizi-find-id-status" class="muted small-text"></span>
+        </div>
+        <hr style="border-color:var(--border);margin:16px 0;">
         <div class="row">
           <div class="col" style="max-width:220px;">
             <label for="wizi-query-type">סוג שאילתה</label>
