@@ -550,3 +550,47 @@ select[multiple] option {
   border-radius: 4px;
   margin-bottom: 2px;
 }
+
+/* ── Autocomplete ── */
+.autocomplete-wrapper {
+  position: relative;
+}
+
+.autocomplete-list {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  max-height: 200px;
+  overflow-y: auto;
+  background: var(--bg-input);
+  border: 1px solid var(--border-hover);
+  border-top: none;
+  border-radius: 0 0 var(--radius) var(--radius);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+
+.autocomplete-list.open {
+  display: block;
+}
+
+.autocomplete-item {
+  padding: 7px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--text);
+  transition: background var(--transition);
+}
+
+.autocomplete-item:hover,
+.autocomplete-item.active {
+  background: var(--accent-glow);
+}
+
+.autocomplete-item .ac-sub {
+  color: var(--text-muted);
+  font-size: 11px;
+  margin-right: 6px;
+}

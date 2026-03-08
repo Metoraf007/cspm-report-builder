@@ -275,15 +275,19 @@
         <div class="row">
           <div class="col">
             <label for="wizi-project">פרויקט</label>
-            <select id="wizi-project">
-              <option value="">הכל</option>
-            </select>
+            <div class="autocomplete-wrapper">
+              <input type="text" id="wizi-project" placeholder="הקלד לחיפוש פרויקט..." autocomplete="off">
+              <input type="hidden" id="wizi-project-id">
+              <div class="autocomplete-list" id="wizi-project-list"></div>
+            </div>
           </div>
           <div class="col">
             <label for="wizi-subscription">Subscription / חשבון ענן</label>
-            <select id="wizi-subscription">
-              <option value="">הכל</option>
-            </select>
+            <div class="autocomplete-wrapper">
+              <input type="text" id="wizi-subscription" placeholder="הקלד לחיפוש subscription..." autocomplete="off">
+              <input type="hidden" id="wizi-subscription-id">
+              <div class="autocomplete-list" id="wizi-subscription-list"></div>
+            </div>
           </div>
         </div>
         <div class="row">

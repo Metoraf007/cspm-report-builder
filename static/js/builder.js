@@ -2644,38 +2644,128 @@
       var wiziSelectAllBtn = document.getElementById('btn-wizi-select-all');
       var wiziActionsDiv = document.getElementById('wizi-actions');
       var wiziSelectedCount = document.getElementById('wizi-selected-count');
-      var wiziProjectSelect = document.getElementById('wizi-project');
-      var wiziSubscriptionSelect = document.getElementById('wizi-subscription');
+      var wiziProjectInput = document.getElementById('wizi-project');
+      var wiziProjectId = document.getElementById('wizi-project-id');
+      var wiziProjectList = document.getElementById('wizi-project-list');
+      var wiziSubInput = document.getElementById('wizi-subscription');
+      var wiziSubId = document.getElementById('wizi-subscription-id');
+      var wiziSubList = document.getElementById('wizi-subscription-list');
       var wiziIssues = [];
       var wiziEndCursor = null;
       var wiziHasNextPage = false;
       var wiziEnabled = false;
+      var wiziProjects = [];
+      var wiziSubscriptions = [];
+
+      // --- Autocomplete helper ---
+      function setupAutocomplete(input, hiddenInput, listEl, getItems) {
+        var activeIdx = -1;
+
+        function render(query) {
+          var items = getItems();
+          var q = (query || '').toLowerCase();
+          var filtered = q ? items.filter(function(it) {
+            return it.label.toLowerCase().includes(q) || (it.sub || '').toLowerCase().includes(q);
+          }) : items;
+          filtered = filtered.slice(0, 50); // cap results
+
+          if (!filtered.length) {
+            listEl.classList.remove('open');
+            return;
+          }
+
+          listEl.innerHTML = filtered.map(function(it, i) {
+            return '<div class="autocomplete-item" data-id="' + it.id + '" data-label="' + it.label.replace(/"/g, '&quot;') + '">' +
+              it.label + (it.sub ? ' <span class="ac-sub">' + it.sub + '</span>' : '') +
+              '</div>';
+          }).join('');
+          listEl.classList.add('open');
+          activeIdx = -1;
+        }
+
+        input.addEventListener('input', function() {
+          hiddenInput.value = '';
+          render(input.value);
+        });
+
+        input.addEventListener('focus', function() {
+          if (!input.value) render('');
+        });
+
+        listEl.addEventListener('click', function(e) {
+          var item = e.target.closest('.autocomplete-item');
+          if (item) {
+            input.value = item.getAttribute('data-label');
+            hiddenInput.value = item.getAttribute('data-id');
+            listEl.classList.remove('open');
+          }
+        });
+
+        input.addEventListener('keydown', function(e) {
+          var items = listEl.querySelectorAll('.autocomplete-item');
+          if (!items.length) return;
+
+          if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            activeIdx = Math.min(activeIdx + 1, items.length - 1);
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            activeIdx = Math.max(activeIdx - 1, 0);
+          } else if (e.key === 'Enter' && activeIdx >= 0) {
+            e.preventDefault();
+            items[activeIdx].click();
+            return;
+          } else if (e.key === 'Escape') {
+            listEl.classList.remove('open');
+            return;
+          } else {
+            return;
+          }
+
+          items.forEach(function(el, i) {
+            el.classList.toggle('active', i === activeIdx);
+          });
+          if (items[activeIdx]) items[activeIdx].scrollIntoView({ block: 'nearest' });
+        });
+
+        // Close on outside click
+        document.addEventListener('click', function(e) {
+          if (!input.contains(e.target) && !listEl.contains(e.target)) {
+            listEl.classList.remove('open');
+          }
+        });
+
+        // Clear button behavior — if user clears the field, reset hidden ID
+        input.addEventListener('change', function() {
+          if (!input.value.trim()) hiddenInput.value = '';
+        });
+      }
+
+      setupAutocomplete(wiziProjectInput, wiziProjectId, wiziProjectList, function() {
+        return wiziProjects;
+      });
+
+      setupAutocomplete(wiziSubInput, wiziSubId, wiziSubList, function() {
+        return wiziSubscriptions;
+      });
 
       function loadWiziFilters() {
-        // Load projects
         fetch('/api/wizi/projects')
           .then(function(r) { return r.json(); })
           .then(function(data) {
-            if (data.projects && data.projects.length) {
-              data.projects.forEach(function(p) {
-                var opt = document.createElement('option');
-                opt.value = p.id;
-                opt.textContent = p.name;
-                wiziProjectSelect.appendChild(opt);
+            if (data.projects) {
+              wiziProjects = data.projects.map(function(p) {
+                return { id: p.id, label: p.name, sub: p.slug || '' };
               });
             }
           }).catch(function() {});
 
-        // Load subscriptions
         fetch('/api/wizi/subscriptions')
           .then(function(r) { return r.json(); })
           .then(function(data) {
-            if (data.subscriptions && data.subscriptions.length) {
-              data.subscriptions.forEach(function(s) {
-                var opt = document.createElement('option');
-                opt.value = s.id;
-                opt.textContent = s.name + (s.cloudProvider ? ' (' + s.cloudProvider + ')' : '');
-                wiziSubscriptionSelect.appendChild(opt);
+            if (data.subscriptions) {
+              wiziSubscriptions = data.subscriptions.map(function(s) {
+                return { id: s.id, label: s.name, sub: s.cloudProvider || '' };
               });
             }
           }).catch(function() {});
@@ -2795,8 +2885,8 @@
         var sevFilter = getSelectedValues(document.getElementById('wizi-severity'));
         var statusFilter = getSelectedValues(document.getElementById('wizi-status'));
         var limit = parseInt(document.getElementById('wizi-limit').value) || 10;
-        var project = wiziProjectSelect.value || null;
-        var subscription = wiziSubscriptionSelect.value || null;
+        var project = wiziProjectId.value || null;
+        var subscription = wiziSubId.value || null;
 
         wiziFetchBtn.disabled = true;
         wiziStatusMsg.textContent = 'שולף ממצאים מ-Wizi...';
