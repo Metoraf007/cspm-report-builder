@@ -2215,6 +2215,66 @@
       // Restore on load
       autoRestore();
 
+      // --- Report defaults (save/load profile) ---
+      const DEFAULTS_KEY = 'cspm_report_defaults';
+      const defaultsStatus = document.getElementById('defaults-status');
+
+      const defaultFields = [
+        'report-client', 'report-env', 'report-consultant',
+        'report-team-name', 'report-org-name', 'report-footer-text',
+        'report-cover-note', 'report-lang', 'report-exec-summary',
+        'report-key-topics'
+      ];
+
+      function saveDefaults() {
+        var data = {};
+        defaultFields.forEach(function(id) {
+          var el = document.getElementById(id);
+          if (el) data[id] = el.value;
+        });
+        try {
+          localStorage.setItem(DEFAULTS_KEY, JSON.stringify(data));
+          defaultsStatus.textContent = '✓ ברירת מחדל נשמרה';
+          setTimeout(function() { defaultsStatus.textContent = ''; }, 3000);
+        } catch (e) {
+          defaultsStatus.textContent = 'שגיאה בשמירה';
+        }
+      }
+
+      function loadDefaults() {
+        try {
+          var raw = localStorage.getItem(DEFAULTS_KEY);
+          if (!raw) {
+            defaultsStatus.textContent = 'אין ברירת מחדל שמורה';
+            setTimeout(function() { defaultsStatus.textContent = ''; }, 3000);
+            return false;
+          }
+          var data = JSON.parse(raw);
+          defaultFields.forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el && data[id] !== undefined) el.value = data[id];
+          });
+          defaultsStatus.textContent = '✓ ברירת מחדל נטענה';
+          setTimeout(function() { defaultsStatus.textContent = ''; }, 3000);
+          return true;
+        } catch (e) { return false; }
+      }
+
+      function clearDefaults() {
+        localStorage.removeItem(DEFAULTS_KEY);
+        defaultsStatus.textContent = '✓ ברירת מחדל נמחקה';
+        setTimeout(function() { defaultsStatus.textContent = ''; }, 3000);
+      }
+
+      document.getElementById('btn-save-defaults').addEventListener('click', saveDefaults);
+      document.getElementById('btn-load-defaults').addEventListener('click', loadDefaults);
+      document.getElementById('btn-clear-defaults').addEventListener('click', clearDefaults);
+
+      // Auto-load defaults on fresh page (no autosave data and no findings)
+      if (!findings.length && !localStorage.getItem(AUTOSAVE_KEY)) {
+        loadDefaults();
+      }
+
       // Default report date to today if not already set (e.g. from auto-restore)
       if (!dateInput.value) {
         dateInput.valueAsDate = new Date();
