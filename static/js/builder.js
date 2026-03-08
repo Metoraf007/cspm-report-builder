@@ -2636,16 +2636,50 @@
       // =====================================================================
       // Wizi integration
       // =====================================================================
-      var wiziTab = document.getElementById('tab-wizi');
       var wiziResults = document.getElementById('wizi-results');
       var wiziStatusMsg = document.getElementById('wizi-status-msg');
       var wiziFetchBtn = document.getElementById('btn-wizi-fetch');
       var wiziLoadMoreBtn = document.getElementById('btn-wizi-load-more');
       var wiziImportBtn = document.getElementById('btn-wizi-import-selected');
       var wiziSelectAllBtn = document.getElementById('btn-wizi-select-all');
+      var wiziActionsDiv = document.getElementById('wizi-actions');
+      var wiziSelectedCount = document.getElementById('wizi-selected-count');
+      var wiziProjectSelect = document.getElementById('wizi-project');
+      var wiziSubscriptionSelect = document.getElementById('wizi-subscription');
       var wiziIssues = [];
       var wiziEndCursor = null;
       var wiziHasNextPage = false;
+      var wiziEnabled = false;
+
+      function loadWiziFilters() {
+        // Load projects
+        fetch('/api/wizi/projects')
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            if (data.projects && data.projects.length) {
+              data.projects.forEach(function(p) {
+                var opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = p.name;
+                wiziProjectSelect.appendChild(opt);
+              });
+            }
+          }).catch(function() {});
+
+        // Load subscriptions
+        fetch('/api/wizi/subscriptions')
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            if (data.subscriptions && data.subscriptions.length) {
+              data.subscriptions.forEach(function(s) {
+                var opt = document.createElement('option');
+                opt.value = s.id;
+                opt.textContent = s.name + (s.cloudProvider ? ' (' + s.cloudProvider + ')' : '');
+                wiziSubscriptionSelect.appendChild(opt);
+              });
+            }
+          }).catch(function() {});
+      }
 
       // Check if Wizi is enabled on load
       if (isCloud) {
@@ -2653,7 +2687,9 @@
           .then(function(r) { return r.json(); })
           .then(function(data) {
             if (data.enabled) {
+              wiziEnabled = true;
               wiziStatusMsg.textContent = '✓ Wizi מחובר — ' + (data.totalIssues || 0) + ' issues בסה"כ';
+              loadWiziFilters();
             } else {
               wiziStatusMsg.textContent = 'Wizi לא מוגדר — הגדר WIZI_CLIENT_ID ו-WIZI_CLIENT_SECRET ב-.env';
             }
@@ -2691,17 +2727,22 @@
         return 'CSPM';
       }
 
+      function updateWiziSelectedCount() {
+        var total = document.querySelectorAll('.wizi-check').length;
+        var checked = document.querySelectorAll('.wizi-check:checked').length;
+        wiziSelectedCount.textContent = checked + ' / ' + total + ' נבחרו';
+      }
+
       function renderWiziTable() {
         if (!wiziIssues.length) {
           wiziResults.innerHTML = '<p class="muted">לא נמצאו ממצאים.</p>';
-          wiziImportBtn.style.display = 'none';
-          wiziSelectAllBtn.style.display = 'none';
+          wiziActionsDiv.style.display = 'none';
           return;
         }
 
         var html = '<table><caption>ממצאי Wizi — סמן לייבוא</caption><thead><tr>' +
-          '<th><input type="checkbox" id="wizi-check-all"></th>' +
-          '<th>Rule</th><th>חומרה</th><th>Entity</th><th>Cloud</th><th>Region</th><th>סטטוס</th>' +
+          '<th><input type="checkbox" id="wizi-check-all" checked></th>' +
+          '<th>Rule</th><th>חומרה</th><th>Entity</th><th>Subscription</th><th>Cloud</th><th>Region</th><th>סטטוס</th>' +
           '</tr></thead><tbody>';
 
         wiziIssues.forEach(function(issue, idx) {
@@ -2714,6 +2755,7 @@
             '<td title="' + (rule.description || '').replace(/"/g, '&quot;') + '">' + (rule.name || 'N/A') + '</td>' +
             '<td><span class="severity-chip ' + sevClass + '">' + sev + '</span></td>' +
             '<td>' + (entity.name || 'N/A') + '<br><span class="muted">' + (entity.nativeType || entity.type || '') + '</span></td>' +
+            '<td>' + (entity.subscriptionName || '') + '</td>' +
             '<td>' + (entity.cloudPlatform || '') + '</td>' +
             '<td>' + (entity.region || '') + '</td>' +
             '<td>' + (issue.status || '') + '</td>' +
@@ -2722,14 +2764,21 @@
 
         html += '</tbody></table>';
         wiziResults.innerHTML = html;
-        wiziImportBtn.style.display = '';
-        wiziSelectAllBtn.style.display = '';
+        wiziActionsDiv.style.display = '';
 
         // Check-all toggle
         document.getElementById('wizi-check-all').addEventListener('change', function() {
           var checked = this.checked;
           document.querySelectorAll('.wizi-check').forEach(function(cb) { cb.checked = checked; });
+          updateWiziSelectedCount();
         });
+
+        // Individual checkbox change
+        wiziResults.addEventListener('change', function(e) {
+          if (e.target.classList.contains('wizi-check')) updateWiziSelectedCount();
+        });
+
+        updateWiziSelectedCount();
       }
 
       wiziFetchBtn.addEventListener('click', function() {
@@ -2745,12 +2794,16 @@
       function fetchWiziIssues(append) {
         var sevFilter = getSelectedValues(document.getElementById('wizi-severity'));
         var statusFilter = getSelectedValues(document.getElementById('wizi-status'));
-        var limit = parseInt(document.getElementById('wizi-limit').value) || 100;
+        var limit = parseInt(document.getElementById('wizi-limit').value) || 10;
+        var project = wiziProjectSelect.value || null;
+        var subscription = wiziSubscriptionSelect.value || null;
 
         wiziFetchBtn.disabled = true;
         wiziStatusMsg.textContent = 'שולף ממצאים מ-Wizi...';
 
         var body = { first: limit, severity: sevFilter, status: statusFilter };
+        if (project) body.project = project;
+        if (subscription) body.subscription = subscription;
         if (append && wiziEndCursor) body.after = wiziEndCursor;
 
         fetch('/api/wizi/issues', {
@@ -2798,6 +2851,7 @@
         checks.forEach(function(cb) { cb.checked = !allChecked; });
         var checkAll = document.getElementById('wizi-check-all');
         if (checkAll) checkAll.checked = !allChecked;
+        updateWiziSelectedCount();
       });
 
       wiziImportBtn.addEventListener('click', function() {

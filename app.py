@@ -595,6 +595,67 @@ query IssuesTable($first: Int, $after: String, $filterBy: IssueFilters) {
 }
 """
 
+WIZI_PROJECTS_QUERY = """
+query ProjectsTable($first: Int, $after: String) {
+  projects(first: $first, after: $after) {
+    nodes {
+      id
+      name
+      slug
+      businessImpact
+      riskProfile {
+        businessImpact
+      }
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+"""
+
+WIZI_SUBSCRIPTIONS_QUERY = """
+query SubscriptionsTable($first: Int, $after: String) {
+  subscriptions(first: $first, after: $after) {
+    nodes {
+      id
+      name
+      externalId
+      cloudProvider
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+"""
+
+
+@app.route("/api/wizi/projects")
+def api_wizi_projects():
+    """Fetch available projects from Wizi."""
+    if not WIZI_CLIENT_ID or not WIZI_CLIENT_SECRET:
+        return jsonify({"error": "Wizi integration not configured"}), 501
+    try:
+        result = _wizi_graphql(WIZI_PROJECTS_QUERY, {"first": 500})
+        if "errors" in result:
+            return jsonify({"error": result["errors"][0].get("message", "GraphQL error")}), 502
+        nodes = result.get("data", {}).get("projects", {}).get("nodes", [])
+        return jsonify({"projects": nodes})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 502
+
+
+@app.route("/api/wizi/subscriptions")
+def api_wizi_subscriptions():
+    """Fetch available subscriptions (cloud accounts) from Wizi."""
+    if not WIZI_CLIENT_ID or not WIZI_CLIENT_SECRET:
+        return jsonify({"error": "Wizi integration not configured"}), 501
+    try:
+        result = _wizi_graphql(WIZI_SUBSCRIPTIONS_QUERY, {"first": 500})
+        if "errors" in result:
+            return jsonify({"error": result["errors"][0].get("message", "GraphQL error")}), 502
+        nodes = result.get("data", {}).get("subscriptions", {}).get("nodes", [])
+        return jsonify({"subscriptions": nodes})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 502
+
 
 @app.route("/api/wizi/issues", methods=["POST"])
 def api_wizi_issues():
@@ -607,8 +668,10 @@ def api_wizi_issues():
     data = request.get_json(silent=True) or {}
     first = min(int(data.get("first", 100)), 500)
     after = data.get("after") or None
-    severity = data.get("severity") or None  # list like ["CRITICAL","HIGH"]
+    severity = data.get("severity") or None
     status = data.get("status") or ["OPEN", "IN_PROGRESS"]
+    project_id = data.get("project") or None
+    subscription_id = data.get("subscription") or None
 
     variables: Dict[str, Any] = {"first": first}
     if after:
@@ -619,6 +682,10 @@ def api_wizi_issues():
         filter_by["severity"] = severity if isinstance(severity, list) else [severity]
     if status:
         filter_by["status"] = status if isinstance(status, list) else [status]
+    if project_id:
+        filter_by["project"] = project_id if isinstance(project_id, list) else [project_id]
+    if subscription_id:
+        filter_by["subscriptionId"] = subscription_id if isinstance(subscription_id, list) else [subscription_id]
     if filter_by:
         variables["filterBy"] = filter_by
 
