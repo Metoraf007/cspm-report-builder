@@ -657,6 +657,27 @@ def api_wizi_subscriptions():
         return jsonify({"error": str(e)}), 502
 
 
+@app.route("/api/wizi/graphql", methods=["POST"])
+def api_wizi_graphql_proxy():
+    """Raw GraphQL proxy for debugging — pass {query, variables}."""
+    if not WIZI_CLIENT_ID or not WIZI_CLIENT_SECRET:
+        return jsonify({"error": "Wizi integration not configured"}), 501
+    enforce_auth()
+    data = request.get_json(silent=True) or {}
+    query = data.get("query", "")
+    variables = data.get("variables", {})
+    if not query:
+        return jsonify({"error": "No query provided"}), 400
+    try:
+        result = _wizi_graphql(query, variables)
+        return jsonify(result)
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8", errors="replace")
+        return jsonify({"error": f"Wizi API error: {e.code}", "details": body}), 502
+    except Exception as e:
+        return jsonify({"error": str(e)}), 502
+
+
 @app.route("/api/wizi/issues", methods=["POST"])
 def api_wizi_issues():
     """Fetch issues from Wizi with optional filters and pagination."""

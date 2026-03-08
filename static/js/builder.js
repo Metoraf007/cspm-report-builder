@@ -2762,22 +2762,32 @@
         fetch('/api/wizi/projects')
           .then(function(r) { return r.json(); })
           .then(function(data) {
+            if (data.error) {
+              console.warn('Wizi projects error:', data.error);
+              return;
+            }
             if (data.projects) {
               wiziProjects = data.projects.map(function(p) {
                 return { id: p.id, label: p.name, sub: p.slug || '' };
               });
+              console.log('Wizi: loaded ' + wiziProjects.length + ' projects');
             }
-          }).catch(function() {});
+          }).catch(function(e) { console.warn('Wizi projects fetch failed:', e); });
 
         fetch('/api/wizi/subscriptions')
           .then(function(r) { return r.json(); })
           .then(function(data) {
+            if (data.error) {
+              console.warn('Wizi subscriptions error:', data.error);
+              return;
+            }
             if (data.subscriptions) {
               wiziSubscriptions = data.subscriptions.map(function(s) {
                 return { id: s.id, label: s.name, sub: s.cloudProvider || '' };
               });
+              console.log('Wizi: loaded ' + wiziSubscriptions.length + ' subscriptions');
             }
-          }).catch(function() {});
+          }).catch(function(e) { console.warn('Wizi subscriptions fetch failed:', e); });
       }
 
       // Check if Wizi is enabled on load
@@ -2789,6 +2799,14 @@
               wiziEnabled = true;
               wiziStatusMsg.textContent = '✓ Wizi מחובר — ' + (data.totalIssues || 0) + ' issues בסה"כ';
               loadWiziFilters();
+              // Update status after filters load
+              setTimeout(function() {
+                var parts = ['✓ Wizi מחובר'];
+                parts.push(data.totalIssues + ' issues');
+                if (wiziProjects.length) parts.push(wiziProjects.length + ' projects');
+                if (wiziSubscriptions.length) parts.push(wiziSubscriptions.length + ' subscriptions');
+                wiziStatusMsg.textContent = parts.join(' · ');
+              }, 3000);
             } else {
               wiziStatusMsg.textContent = 'Wizi לא מוגדר — הגדר WIZI_CLIENT_ID ו-WIZI_CLIENT_SECRET ב-.env';
             }
