@@ -97,18 +97,35 @@
 
     <!-- טופס הוספת/עריכת ממצא -->
     <details class="section-box" open>
-      <summary id="section-finding-form">הוספת / עריכת ממצא CSPM</summary>
+      <summary id="section-finding-form">הוספת / עריכת ממצא</summary>
       <div class="section-body">
         <p class="muted small-text">
-          שדות חובה: מזהה, כותרת. כל השאר אופציונליים. ניתן להעלות תמונה כהוכחת ממצא.
+          שדות חובה: קטגוריה, כותרת. כל השאר אופציונליים. ניתן להעלות תמונה כהוכחת ממצא.
         </p>
 
         <div class="row">
           <div class="col">
+            <label for="f-category">קטגוריית ממצא</label>
+            <select id="f-category">
+              <option value="CSPM">CSPM – Cloud Configuration</option>
+              <option value="KSPM">KSPM – Kubernetes</option>
+              <option value="DSPM">DSPM – Data Security</option>
+              <option value="VULN">VULN – Vulnerability</option>
+              <option value="NEXP">NEXP – Network Exposure</option>
+              <option value="EAPM">EAPM – Excessive Access</option>
+              <option value="HSPM">HSPM – Host Configuration</option>
+              <option value="SECR">SECR – Secrets</option>
+              <option value="EOLM">EOLM – End of Life</option>
+            </select>
+          </div>
+          <div class="col">
             <label for="f-id">מזהה ממצא (ID) *</label>
             <input type="text" id="f-id" placeholder="CSPM-001" required aria-required="true" readonly>
-            <p class="muted small-text">מזהה נוצר אוטומטית. ניתן ללחוץ ולשנות ידנית.</p>
+            <p class="muted small-text">מזהה נוצר אוטומטית לפי קטגוריה. ניתן ללחוץ ולשנות ידנית.</p>
           </div>
+        </div>
+
+        <div class="row">
           <div class="col">
             <label for="f-title">כותרת ממצא *</label>
             <input type="text" id="f-title" placeholder="Bucket ציבורי עם נתונים רגישים" required aria-required="true">

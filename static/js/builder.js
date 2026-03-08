@@ -88,23 +88,45 @@
         return s.split('\n').map(l => l.trim()).filter(Boolean);
       }
 
-      // --- Auto-generate finding ID ---
-      function generateNextId() {
-        let max = 0;
-        findings.forEach(f => {
-          const m = (f.id || '').match(/CSPM-(\d+)/);
+      // --- Category definitions ---
+      var categoryMap = {
+        'CSPM': 'Cloud Configuration',
+        'KSPM': 'Kubernetes',
+        'DSPM': 'Data Security',
+        'VULN': 'Vulnerability',
+        'NEXP': 'Network Exposure',
+        'EAPM': 'Excessive Access',
+        'HSPM': 'Host Configuration',
+        'SECR': 'Secrets',
+        'EOLM': 'End of Life'
+      };
+
+      // --- Auto-generate finding ID per category ---
+      function generateNextId(prefix) {
+        prefix = prefix || 'CSPM';
+        var max = 0;
+        findings.forEach(function(f) {
+          var m = (f.id || '').match(new RegExp('^' + prefix + '-(\\d+)'));
           if (m) max = Math.max(max, parseInt(m[1], 10));
         });
-        return 'CSPM-' + String(max + 1).padStart(3, '0');
+        return prefix + '-' + String(max + 1).padStart(3, '0');
       }
 
       function prefillId() {
-        const idField = document.getElementById('f-id');
+        var idField = document.getElementById('f-id');
         if (editingIndex === null) {
-          idField.value = generateNextId();
+          var cat = document.getElementById('f-category').value;
+          idField.value = generateNextId(cat);
           idField.readOnly = true;
         }
       }
+
+      // Update ID when category changes
+      document.getElementById('f-category').addEventListener('change', function() {
+        if (editingIndex === null) {
+          prefillId();
+        }
+      });
 
       // Allow clicking the ID field to make it editable
       document.getElementById('f-id').addEventListener('click', function() {
@@ -217,6 +239,7 @@
             id:          f.id          || '',
             title:       f.title       || '',
             severity:    f.severity    || 'medium',
+            category:    f.category    || 'CSPM',
             description: f.description || '',
             impact:      f.impact      || '',
             technical: Array.isArray(f.technical)
@@ -250,11 +273,12 @@
         }
 
         let html = '<table><caption class="muted small-text">רשימת ממצאים שנוספו לדו"ח</caption><thead><tr>' +
-          '<th>#</th><th>מזהה</th><th>כותרת</th><th>חומרה</th><th>מדיניות / תקנים</th><th>הוכחה</th><th>פעולות</th>' +
+          '<th>#</th><th>מזהה</th><th>קטגוריה</th><th>כותרת</th><th>חומרה</th><th>מדיניות / תקנים</th><th>הוכחה</th><th>פעולות</th>' +
           '</tr></thead><tbody>';
 
         findings.forEach((f, idx) => {
           const sev = severityMap[f.severity] || severityMap.medium;
+          const catLabel = categoryMap[f.category] || f.category || 'CSPM';
           const policiesInline = f.policies.length
             ? f.policies.map(p => '<span class="tag-inline">' + p + '</span>').join(' ')
             : '<span class="muted">—</span>';
@@ -264,6 +288,7 @@
           html += '<tr>' +
             '<td>' + (idx + 1) + '</td>' +
             '<td>' + (f.id || '') + '</td>' +
+            '<td><span class="tag-inline">' + (f.category || 'CSPM') + '</span></td>' +
             '<td>' + (f.title || '') + '</td>' +
             '<td><span class="severity-chip ' + sev.class + '">' + sev.text + '</span></td>' +
             '<td>' + policiesInline + '</td>' +
@@ -299,7 +324,7 @@
             } else if (action === 'dup') {
               const orig = findings[idx];
               const dup = JSON.parse(JSON.stringify(orig));
-              dup.id = generateNextId();
+              dup.id = generateNextId(dup.category || 'CSPM');
               findings.splice(idx + 1, 0, dup);
               statusMsg.textContent = 'שוכפל ממצא ' + orig.id + ' → ' + dup.id;
               renderFindingsTable();
@@ -338,6 +363,7 @@
         document.getElementById('f-id').value = '';
         document.getElementById('f-title').value = '';
         document.getElementById('f-severity').value = 'medium';
+        document.getElementById('f-category').value = 'CSPM';
         document.getElementById('f-description').value = '';
         document.getElementById('f-impact').value = '';
         document.getElementById('f-technical').value = '';
@@ -360,6 +386,7 @@
         idField.readOnly = false;
         document.getElementById('f-title').value = f.title;
         document.getElementById('f-severity').value = f.severity;
+        document.getElementById('f-category').value = f.category || 'CSPM';
         document.getElementById('f-description').value = f.description;
         document.getElementById('f-impact').value = f.impact;
         document.getElementById('f-technical').value = f.technical.join('\\n');
@@ -497,6 +524,7 @@
         const id          = document.getElementById('f-id').value.trim();
         const title       = document.getElementById('f-title').value.trim();
         const severity    = document.getElementById('f-severity').value;
+        const category    = document.getElementById('f-category').value;
         const description = document.getElementById('f-description').value.trim();
         const impact      = document.getElementById('f-impact').value.trim();
         const technical   = splitLines(document.getElementById('f-technical').value);
@@ -522,6 +550,7 @@
             id,
             title,
             severity,
+            category,
             description,
             impact,
             technical,
@@ -666,7 +695,7 @@
         const teamName    = document.getElementById('report-team-name').value.trim() || 'CSPM Report';
         const orgName     = document.getElementById('report-org-name').value.trim();
         const footerText  = document.getElementById('report-footer-text').value.trim();
-        const coverNote   = document.getElementById('report-cover-note').value.trim() || 'מסמך זה מסכם את ממצאי ה-CSPM כפי שאותרו, כולל ניתוח סיכונים והמלצות לטיפול.';
+        const coverNote   = document.getElementById('report-cover-note').value.trim() || 'מסמך זה מסכם את ממצאי בדיקת האבטחה כפי שאותרו, כולל ניתוח סיכונים והמלצות לטיפול.';
 
         const critCount  = countSeverity('critical');
         const highCount  = countSeverity('high');
@@ -674,7 +703,23 @@
         const lowCount   = countSeverity('low');
         const infoCount  = countSeverity('info');
 
-        const findingsCardsHtml = findings.map(f => {
+        // Group findings by category
+        var findingsByCategory = {};
+        findings.forEach(function(f) {
+          var cat = f.category || 'CSPM';
+          if (!findingsByCategory[cat]) findingsByCategory[cat] = [];
+          findingsByCategory[cat].push(f);
+        });
+
+        var findingsCardsHtml = '';
+        var catKeys = Object.keys(findingsByCategory);
+        catKeys.forEach(function(cat) {
+          var catLabel = categoryMap[cat] || cat;
+          if (catKeys.length > 1) {
+            findingsCardsHtml += '<h2 style="margin-top:18px;border-right:3px solid #1d4ed8;padding-right:5px;">' + escapeHtml(cat + ' – ' + catLabel) + '</h2>\n';
+          }
+          findingsByCategory[cat].forEach(function(f) {
+
           const sev = severityMap[f.severity] || severityMap.medium;
           const anchorId = makeFindingAnchorId(f.id);
 
@@ -706,7 +751,7 @@
               `
             : '';
 
-          return `
+          findingsCardsHtml += `
           <div class="finding-wrap">
           <div class="finding-card" id="${anchorId}">
             <div class="finding-header">
@@ -742,7 +787,9 @@
             ${evidenceHtml}
           </div>
           </div>`;
-        }).join('\n');
+          findingsCardsHtml += '\n';
+          });
+        });
 
         const treatmentTableHtml = findings.map(f => {
           const sev = severityMap[f.severity] || severityMap.medium;
@@ -1262,7 +1309,7 @@
             <span><a href="#findings-summary">3. סיכום ממצאים לפי רמת חומרה</a></span><span>עמוד 3</span>
         </li>
         <li class="toc-item">
-            <span><a href="#detailed-findings">4. ממצאים עיקריים (CSPM)</a></span><span>עמוד 4</span>
+            <span><a href="#detailed-findings">4. ממצאים עיקריים</a></span><span>עמוד 4</span>
         </li>
         <li class="toc-item">
             <span><a href="#recommendations">5. המלצות ותכנית טיפול</a></span><span>עמוד 5</span>
@@ -1351,7 +1398,7 @@
     </section>
 
     <section class="page-section">
-      <h1 id="detailed-findings">4. ממצאים עיקריים (CSPM)</h1>
+      <h1 id="detailed-findings">4. ממצאים עיקריים</h1>
       <p>
         להלן כרטיסי הממצאים שנכללים בדו"ח זה, כפי שנאספו במערכת ואושרו לאחר בדיקה ידנית.
       </p>
@@ -1633,13 +1680,22 @@
                   }
                 } catch(e) {}
 
+                // Auto-detect category from cloud provider / service
+                var category = 'CSPM';
+                var cloudLower = cloud.toLowerCase();
+                var serviceLower = service.toLowerCase();
+                if (cloudLower === 'kubernetes' || serviceLower === 'kubernetes') {
+                  category = 'KSPM';
+                }
+
                 // Parse remediation into lines
                 var recs = remediation ? splitLines(remediation) : [];
 
                 findings.push({
-                  id: shortId || generateNextId(),
+                  id: shortId || generateNextId(category),
                   title: name,
                   severity: sev,
+                  category: category,
                   description: desc,
                   impact: impact,
                   technical: technical,
@@ -1669,9 +1725,10 @@
                 var title = r[colTitle] || '';
                 if (!title) continue;
                 findings.push({
-                  id: (colId >= 0 && r[colId]) ? r[colId] : generateNextId(),
+                  id: (colId >= 0 && r[colId]) ? r[colId] : generateNextId('CSPM'),
                   title: title,
                   severity: colSev >= 0 ? mapSeverity(r[colSev]) : 'medium',
+                  category: 'CSPM',
                   description: colDesc >= 0 ? (r[colDesc] || '') : '',
                   impact: colImpact >= 0 ? (r[colImpact] || '') : '',
                   technical: [],
