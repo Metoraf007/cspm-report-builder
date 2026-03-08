@@ -10,9 +10,51 @@
   <!-- Toast container -->
   <div id="toast-container" aria-live="polite"></div>
 
+  <!-- Keyboard shortcuts overlay -->
+  <div id="kbd-overlay" class="kbd-overlay" style="display:none;" role="dialog" aria-label="קיצורי מקלדת">
+    <div class="kbd-overlay-content">
+      <div class="kbd-overlay-header">
+        <span>⌨️ קיצורי מקלדת</span>
+        <button class="btn btn-secondary btn-sm" id="kbd-overlay-close">✕</button>
+      </div>
+      <div class="kbd-grid">
+        <div><kbd>?</kbd> הצג/הסתר קיצורים</div>
+        <div><kbd>J</kbd> / <kbd>K</kbd> ניווט בטבלת ממצאים</div>
+        <div><kbd>E</kbd> ערוך ממצא נבחר</div>
+        <div><kbd>D</kbd> מחק ממצא נבחר</div>
+        <div><kbd>Ctrl+Enter</kbd> הוסף/עדכן ממצא</div>
+        <div><kbd>Ctrl+V</kbd> הדבק תמונת הוכחה</div>
+        <div><kbd>←</kbd> / <kbd>→</kbd> ניווט בין טאבים</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Finding preview panel -->
+  <div id="finding-preview-panel" class="preview-panel" style="display:none;">
+    <div class="preview-panel-header">
+      <span id="preview-panel-title">תצוגה מקדימה</span>
+      <button class="btn btn-secondary btn-sm" id="preview-panel-close">✕</button>
+    </div>
+    <div id="preview-panel-body" class="preview-panel-body"></div>
+    <div class="preview-panel-actions">
+      <button class="btn btn-primary btn-sm" id="preview-panel-edit">ערוך ממצא</button>
+    </div>
+  </div>
+
+  <!-- Wizi auto-fill banner -->
+  <div id="wizi-autofill-banner" class="autofill-banner" style="display:none;">
+    <span id="wizi-autofill-text"></span>
+    <button class="btn btn-primary btn-sm" id="btn-wizi-autofill-accept">מלא אוטומטית</button>
+    <button class="btn btn-secondary btn-sm" id="btn-wizi-autofill-dismiss">✕</button>
+  </div>
+
   <div class="app-container">
     <div class="app-header">
-      <h1>Wizi — CSPM Report Builder</h1>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <h1>Wizi — CSPM Report Builder</h1>
+        <button class="btn btn-secondary btn-sm" id="btn-theme-toggle" title="החלף ערכת נושא" style="margin-top:0;padding:4px 8px;">🌙</button>
+        <button class="btn btn-secondary btn-sm" id="btn-kbd-help" title="קיצורי מקלדת (?)" style="margin-top:0;padding:4px 8px;">⌨️</button>
+      </div>
       <span id="autosave-indicator" class="autosave-indicator"></span>
     </div>
 
@@ -269,6 +311,8 @@
             <option value="info">מידע</option>
           </select>
         </div>
+        <!-- Category count badges -->
+        <div id="category-badges" class="category-badges"></div>
         <!-- Batch actions -->
         <div class="batch-actions" id="batch-actions" style="display:none;">
           <span id="batch-count" class="muted small-text"></span>
@@ -407,6 +451,14 @@
             <button class="btn btn-primary" id="btn-wizi-fetch">שלוף ממצאים</button>
             <button class="btn btn-secondary" id="btn-wizi-load-more" style="display:none;">טען עוד</button>
           </div>
+        </div>
+        <!-- Wizi presets -->
+        <div class="wizi-presets-bar">
+          <select id="wizi-preset-select" class="filter-select" style="max-width:220px;">
+            <option value="">📌 טען פריסט...</option>
+          </select>
+          <button class="btn btn-secondary btn-sm" id="btn-wizi-preset-save">💾 שמור פריסט</button>
+          <button class="btn btn-danger btn-sm" id="btn-wizi-preset-delete" style="display:none;">🗑 מחק</button>
         </div>
         <div id="wizi-status-msg" class="muted small-text" role="status" aria-live="polite"></div>
         <div id="wizi-results" class="small-text"></div>

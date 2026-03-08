@@ -37,6 +37,50 @@
         setTimeout(function() { if (el.parentNode) el.parentNode.removeChild(el); }, 3200);
       }
 
+      // ── Theme toggle ──
+      (function() {
+        var saved = localStorage.getItem('cspm_theme') || 'dark';
+        if (saved === 'light') document.documentElement.setAttribute('data-theme', 'light');
+        var btn = document.getElementById('btn-theme-toggle');
+        function updateIcon() {
+          var isLight = document.documentElement.getAttribute('data-theme') === 'light';
+          btn.textContent = isLight ? '☀️' : '🌙';
+        }
+        updateIcon();
+        btn.addEventListener('click', function() {
+          var isLight = document.documentElement.getAttribute('data-theme') === 'light';
+          if (isLight) {
+            document.documentElement.removeAttribute('data-theme');
+            localStorage.setItem('cspm_theme', 'dark');
+          } else {
+            document.documentElement.setAttribute('data-theme', 'light');
+            localStorage.setItem('cspm_theme', 'light');
+          }
+          updateIcon();
+        });
+      })();
+
+      // ── Keyboard shortcuts overlay ──
+      var kbdOverlay = document.getElementById('kbd-overlay');
+      document.getElementById('btn-kbd-help').addEventListener('click', function() {
+        kbdOverlay.style.display = kbdOverlay.style.display === 'none' ? '' : 'none';
+      });
+      document.getElementById('kbd-overlay-close').addEventListener('click', function() {
+        kbdOverlay.style.display = 'none';
+      });
+      kbdOverlay.addEventListener('click', function(e) {
+        if (e.target === kbdOverlay) kbdOverlay.style.display = 'none';
+      });
+      document.addEventListener('keydown', function(e) {
+        if (e.key === '?' && !['INPUT','TEXTAREA','SELECT'].includes((document.activeElement||{}).tagName)) {
+          e.preventDefault();
+          kbdOverlay.style.display = kbdOverlay.style.display === 'none' ? '' : 'none';
+        }
+        if (e.key === 'Escape' && kbdOverlay.style.display !== 'none') {
+          kbdOverlay.style.display = 'none';
+        }
+      });
+
       // ── Progress stepper ──
       var stepperSteps = document.querySelectorAll('.progress-stepper .step');
       var stepFindingsCount = document.getElementById('step-findings-count');
@@ -529,11 +573,11 @@
                   '<td>' + policiesInline + '</td>' +
                   '<td>' + evidenceText + '</td>' +
                   '<td>' +
+                    '<button class="btn btn-secondary btn-sm" data-action="preview" data-idx="' + idx + '" aria-label="תצוגה מקדימה ' + (f.id || '') + '">👁</button>' +
                     '<button class="btn btn-secondary btn-sm" data-action="edit" data-idx="' + idx + '" aria-label="ערוך ממצא ' + (f.id || '') + '">ערוך</button>' +
                     '<button class="btn btn-secondary btn-sm" data-action="dup" data-idx="' + idx + '" aria-label="שכפל ממצא ' + (f.id || '') + '">שכפל</button>' +
                     '<button class="btn btn-danger btn-sm" data-action="delete" data-idx="' + idx + '" aria-label="מחק ממצא ' + (f.id || '') + '">מחק</button>' +
-                    '<button class="btn btn-secondary btn-sm" data-action="up" data-idx="' + idx + '" aria-label="העבר למעלה ממצא ' + (f.id || '') + '">▲</button>' +
-                    '<button class="btn btn-secondary btn-sm" data-action="down" data-idx="' + idx + '" aria-label="העבר למטה ממצא ' + (f.id || '') + '">▼</button>' +
+                    '<span class="drag-handle" title="גרור לשינוי סדר">⠿</span>' +
                   '</td>' +
                   '</tr>';
               });
@@ -556,6 +600,8 @@
                     else if (editingIndex !== null && idx < editingIndex) editingIndex--;
                     renderFindingsTable();
                     showToast('ממצא נמחק', 'info');
+                  } else if (action === 'preview') {
+                    showFindingPreview(idx);
                   } else if (action === 'edit') {
                     startEditFinding(idx);
                   } else if (action === 'dup') {
@@ -565,24 +611,6 @@
                     findings.splice(idx + 1, 0, dup);
                     renderFindingsTable();
                     showToast('שוכפל ' + orig.id + ' → ' + dup.id, 'success');
-                  } else if (action === 'up') {
-                    if (idx > 0) {
-                      const tmp = findings[idx - 1];
-                      findings[idx - 1] = findings[idx];
-                      findings[idx] = tmp;
-                      if (editingIndex === idx) editingIndex = idx - 1;
-                      else if (editingIndex === idx - 1) editingIndex = idx;
-                      renderFindingsTable();
-                    }
-                  } else if (action === 'down') {
-                    if (idx < findings.length - 1) {
-                      const tmp = findings[idx + 1];
-                      findings[idx + 1] = findings[idx];
-                      findings[idx] = tmp;
-                      if (editingIndex === idx) editingIndex = idx + 1;
-                      else if (editingIndex === idx + 1) editingIndex = idx;
-                      renderFindingsTable();
-                    }
                   }
                 });
               });
@@ -641,6 +669,10 @@
               tableWrapper.querySelectorAll('.finding-row-check').forEach(function(cb) {
                 cb.addEventListener('change', updateBatchActions);
               });
+
+              // Category badges and drag-and-drop
+              renderCategoryBadges();
+              setupDragAndDrop();
             }
 
       // ── Batch actions ──
@@ -704,6 +736,161 @@
       document.getElementById('findings-search').addEventListener('input', renderFindingsTable);
       document.getElementById('findings-filter-category').addEventListener('change', renderFindingsTable);
       document.getElementById('findings-filter-severity').addEventListener('change', renderFindingsTable);
+
+      // ── Category count badges ──
+      function renderCategoryBadges() {
+        var badgesEl = document.getElementById('category-badges');
+        if (!badgesEl) return;
+        if (!findings.length) { badgesEl.innerHTML = ''; return; }
+        var counts = {};
+        findings.forEach(function(f) {
+          var cat = f.category || 'CSPM';
+          counts[cat] = (counts[cat] || 0) + 1;
+        });
+        var filterCat = document.getElementById('findings-filter-category');
+        var html = '<span class="cat-badge' + (!filterCat.value ? ' active' : '') + '" data-cat="">הכל <span class="cat-count">' + findings.length + '</span></span>';
+        Object.keys(counts).sort().forEach(function(cat) {
+          var isActive = filterCat.value === cat;
+          html += '<span class="cat-badge' + (isActive ? ' active' : '') + '" data-cat="' + cat + '">' + cat + ' <span class="cat-count">' + counts[cat] + '</span></span>';
+        });
+        badgesEl.innerHTML = html;
+        badgesEl.querySelectorAll('.cat-badge').forEach(function(badge) {
+          badge.addEventListener('click', function() {
+            filterCat.value = badge.getAttribute('data-cat');
+            renderFindingsTable();
+          });
+        });
+      }
+
+      // ── Finding preview panel ──
+      var previewPanel = document.getElementById('finding-preview-panel');
+      var previewPanelBody = document.getElementById('preview-panel-body');
+      var previewPanelTitle = document.getElementById('preview-panel-title');
+      var previewPanelEditBtn = document.getElementById('preview-panel-edit');
+      var previewFindingIdx = null;
+
+      document.getElementById('preview-panel-close').addEventListener('click', function() {
+        previewPanel.style.display = 'none';
+      });
+
+      previewPanelEditBtn.addEventListener('click', function() {
+        previewPanel.style.display = 'none';
+        if (previewFindingIdx !== null) startEditFinding(previewFindingIdx);
+      });
+
+      function showFindingPreview(idx) {
+        var f = findings[idx];
+        if (!f) return;
+        previewFindingIdx = idx;
+        var sev = severityMap[f.severity] || severityMap.medium;
+        previewPanelTitle.textContent = f.id + ' — ' + (f.title || '');
+
+        var fields = [
+          { label: 'מזהה', value: f.id },
+          { label: 'קטגוריה', value: f.category || 'CSPM' },
+          { label: 'כותרת', value: f.title },
+          { label: 'חומרה', value: sev.text, html: '<span class="severity-chip ' + sev.class + '">' + sev.text + '</span>' },
+          { label: 'תיאור', value: Array.isArray(f.description) ? f.description.join('\n') : f.description },
+          { label: 'השפעה / סיכון', value: Array.isArray(f.impact) ? f.impact.join('\n') : f.impact },
+          { label: 'פרטים טכניים', value: Array.isArray(f.technical) ? f.technical.join('\n') : f.technical },
+          { label: 'מדיניות / תקנים', value: Array.isArray(f.policies) ? f.policies.join('\n') : f.policies },
+          { label: 'המלצות', value: Array.isArray(f.recs) ? f.recs.join('\n') : f.recs },
+          { label: 'עדיפות', value: f.priority }
+        ];
+
+        var html = '';
+        fields.forEach(function(field) {
+          var val = field.html || (field.value || '—');
+          if (!field.html && !field.value) val = '<span class="muted">—</span>';
+          html += '<div class="preview-field"><div class="preview-label">' + field.label + '</div><div class="preview-value">' + val + '</div></div>';
+        });
+
+        // Evidence thumbnails
+        var evidenceArr = Array.isArray(f.evidence) ? f.evidence : (f.evidence ? [f.evidence] : []);
+        if (evidenceArr.length) {
+          html += '<div class="preview-field"><div class="preview-label">הוכחות (' + evidenceArr.length + ')</div><div class="preview-value">';
+          evidenceArr.forEach(function(e) {
+            html += '<img src="' + e + '" style="max-width:180px;max-height:120px;border-radius:6px;border:1px solid var(--border);margin:4px 4px 4px 0;">';
+          });
+          html += '</div></div>';
+        }
+
+        previewPanelBody.innerHTML = html;
+        previewPanel.style.display = '';
+      }
+
+      // Close preview on Escape
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && previewPanel.style.display !== 'none') {
+          previewPanel.style.display = 'none';
+        }
+      });
+
+      // ── Drag and drop reorder ──
+      var dragSrcIdx = null;
+
+      function setupDragAndDrop() {
+        var rows = tableWrapper.querySelectorAll('tbody tr[data-idx]');
+        rows.forEach(function(row) {
+          var handle = row.querySelector('.drag-handle');
+          if (!handle) return;
+
+          handle.addEventListener('mousedown', function() {
+            row.setAttribute('draggable', 'true');
+          });
+
+          row.addEventListener('dragstart', function(e) {
+            dragSrcIdx = parseInt(row.getAttribute('data-idx'), 10);
+            row.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', dragSrcIdx);
+          });
+
+          row.addEventListener('dragend', function() {
+            row.classList.remove('dragging');
+            row.removeAttribute('draggable');
+            rows.forEach(function(r) { r.classList.remove('drag-over-top', 'drag-over-bottom'); });
+          });
+
+          row.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            var rect = row.getBoundingClientRect();
+            var midY = rect.top + rect.height / 2;
+            rows.forEach(function(r) { r.classList.remove('drag-over-top', 'drag-over-bottom'); });
+            if (e.clientY < midY) {
+              row.classList.add('drag-over-top');
+            } else {
+              row.classList.add('drag-over-bottom');
+            }
+          });
+
+          row.addEventListener('dragleave', function() {
+            row.classList.remove('drag-over-top', 'drag-over-bottom');
+          });
+
+          row.addEventListener('drop', function(e) {
+            e.preventDefault();
+            var targetIdx = parseInt(row.getAttribute('data-idx'), 10);
+            if (dragSrcIdx === null || dragSrcIdx === targetIdx) return;
+
+            var rect = row.getBoundingClientRect();
+            var midY = rect.top + rect.height / 2;
+            var insertBefore = e.clientY < midY;
+
+            var item = findings.splice(dragSrcIdx, 1)[0];
+            var newIdx = targetIdx;
+            if (dragSrcIdx < targetIdx) newIdx--;
+            if (!insertBefore) newIdx++;
+            findings.splice(newIdx, 0, item);
+
+            dragSrcIdx = null;
+            renderFindingsTable();
+            autoSave();
+            showToast('ממצא הוזז', 'info');
+          });
+        });
+      }
 
 
       function resetEditState() {
@@ -3581,6 +3768,14 @@
           wiziStatusMsg.textContent = countText;
 
           renderWiziTable();
+
+          // Auto-fill report details from first Wizi fetch
+          if (!append && nodes.length && !document.getElementById('report-client').value.trim()) {
+            var autoFillData = extractWiziAutoFillData(nodes, qt);
+            if (autoFillData.subscription || autoFillData.cloud) {
+              showWiziAutoFillBanner(autoFillData);
+            }
+          }
         })
         .catch(function(e) {
           wiziStatusMsg.textContent = 'שגיאת רשת: ' + e.message;
@@ -3639,7 +3834,18 @@
         }
 
         var imported = 0;
+        var skipped = 0;
+        var existingTitles = {};
+        findings.forEach(function(f) { existingTitles[(f.title || '').toLowerCase()] = true; });
+
         selected.forEach(function(item) {
+          // Dedup: check if a finding with the same title already exists
+          var title = getWiziItemTitle(item, wiziQueryType);
+          if (title && existingTitles[title.toLowerCase()]) {
+            skipped++;
+            return;
+          }
+
           var importers = {
             configurationFindings: importConfigFinding,
             vulnerabilityFindings: importVulnFinding,
@@ -3653,13 +3859,16 @@
           var fn = importers[wiziQueryType] || importIssueFinding;
           fn(item);
           imported++;
+          if (title) existingTitles[title.toLowerCase()] = true;
         });
 
         renderFindingsTable();
         prefillId();
         autoSave();
         switchToTab('tab-findings-list');
-        showToast('יובאו ' + imported + ' ממצאים מ-Wizi', 'success');
+        var msg = 'יובאו ' + imported + ' ממצאים מ-Wizi';
+        if (skipped) msg += ' (' + skipped + ' כפולים דולגו)';
+        showToast(msg, 'success');
       });
 
       // ── Fetch by Wizi finding ID ──
@@ -3736,6 +3945,184 @@
           if (e.key === 'Enter') { e.preventDefault(); wiziFindIdBtn.click(); }
         });
       }
+
+      // ── Helper: get title from a Wizi item for dedup ──
+      function getWiziItemTitle(item, qt) {
+        if (qt === 'issues') {
+          var rules = item.sourceRules || [];
+          return rules.length ? rules[0].name : (item.description || '');
+        }
+        if (qt === 'configurationFindings' || qt === 'hostConfigurationRuleAssessments' || qt === 'inventoryFindings') {
+          var rule = item.rule || {};
+          return rule.name || item.name || '';
+        }
+        if (qt === 'vulnerabilityFindings') return item.name || item.detailedName || '';
+        if (qt === 'dataFindingsV2') return item.name || (item.dataClassifier || {}).name || '';
+        if (qt === 'secretInstances') return item.name || (item.rule || {}).name || '';
+        if (qt === 'excessiveAccessFindings') return item.name || '';
+        if (qt === 'networkExposures') return 'Network Exposure — ' + ((item.exposedEntity || {}).name || item.id);
+        return item.name || '';
+      }
+
+      // ── Helper: extract auto-fill data from Wizi results ──
+      function extractWiziAutoFillData(nodes, qt) {
+        var subscriptions = {};
+        var clouds = {};
+        nodes.forEach(function(n) {
+          if (qt === 'issues') {
+            var es = n.entitySnapshot || {};
+            if (es.subscriptionName) subscriptions[es.subscriptionName] = true;
+            if (es.cloudPlatform) clouds[es.cloudPlatform] = true;
+          } else if (qt === 'configurationFindings' || qt === 'hostConfigurationRuleAssessments' || qt === 'inventoryFindings') {
+            var res = n.resource || {};
+            var sub = res.subscription || res.cloudAccount || {};
+            if (sub.name) subscriptions[sub.name] = true;
+            if (sub.cloudProvider || res.cloudPlatform) clouds[sub.cloudProvider || res.cloudPlatform] = true;
+          } else if (qt === 'vulnerabilityFindings') {
+            (n.projects || []).forEach(function(p) { if (p.name) subscriptions[p.name] = true; });
+          } else if (qt === 'dataFindingsV2') {
+            var ca = n.cloudAccount || {};
+            if (ca.name) subscriptions[ca.name] = true;
+            if (ca.cloudProvider) clouds[ca.cloudProvider] = true;
+          } else if (qt === 'excessiveAccessFindings') {
+            if (n.cloudPlatform) clouds[n.cloudPlatform] = true;
+            var pca = (n.principal || {}).cloudAccount || {};
+            if (pca.name) subscriptions[pca.name] = true;
+          }
+        });
+        return {
+          subscription: Object.keys(subscriptions).join(', '),
+          cloud: Object.keys(clouds).join(', ')
+        };
+      }
+
+      // ── Wizi auto-fill banner ──
+      var wiziAutoFillBanner = document.getElementById('wizi-autofill-banner');
+      var wiziAutoFillText = document.getElementById('wizi-autofill-text');
+      var pendingAutoFill = null;
+
+      function showWiziAutoFillBanner(data) {
+        pendingAutoFill = data;
+        var parts = [];
+        if (data.subscription) parts.push('לקוח: ' + data.subscription);
+        if (data.cloud) parts.push('ענן: ' + data.cloud);
+        wiziAutoFillText.textContent = '💡 זוהו פרטים — ' + parts.join(' | ');
+        wiziAutoFillBanner.style.display = '';
+      }
+
+      document.getElementById('btn-wizi-autofill-accept').addEventListener('click', function() {
+        if (!pendingAutoFill) return;
+        var clientField = document.getElementById('report-client');
+        var envField = document.getElementById('report-env');
+        if (!clientField.value.trim() && pendingAutoFill.subscription) {
+          clientField.value = pendingAutoFill.subscription;
+        }
+        if (!envField.value.trim() && pendingAutoFill.cloud) {
+          envField.value = pendingAutoFill.cloud;
+        }
+        // Set today's date if empty
+        var dateField = document.getElementById('report-date');
+        if (!dateField.value) {
+          dateField.valueAsDate = new Date();
+        }
+        wiziAutoFillBanner.style.display = 'none';
+        pendingAutoFill = null;
+        showToast('פרטי דו"ח מולאו אוטומטית', 'success');
+        updateStepper();
+      });
+
+      document.getElementById('btn-wizi-autofill-dismiss').addEventListener('click', function() {
+        wiziAutoFillBanner.style.display = 'none';
+        pendingAutoFill = null;
+      });
+
+      // ── Wizi query presets ──
+      var WIZI_PRESETS_KEY = 'cspm_wizi_presets';
+      var wiziPresetSelect = document.getElementById('wizi-preset-select');
+      var wiziPresetDeleteBtn = document.getElementById('btn-wizi-preset-delete');
+
+      function loadWiziPresets() {
+        try {
+          var presets = JSON.parse(localStorage.getItem(WIZI_PRESETS_KEY) || '[]');
+          wiziPresetSelect.innerHTML = '<option value="">📌 טען פריסט...</option>';
+          presets.forEach(function(p, i) {
+            var opt = document.createElement('option');
+            opt.value = i;
+            opt.textContent = p.name;
+            wiziPresetSelect.appendChild(opt);
+          });
+        } catch(e) {}
+      }
+
+      function getWiziPresets() {
+        try { return JSON.parse(localStorage.getItem(WIZI_PRESETS_KEY) || '[]'); } catch(e) { return []; }
+      }
+
+      document.getElementById('btn-wizi-preset-save').addEventListener('click', function() {
+        var name = prompt('שם הפריסט:');
+        if (!name) return;
+        var preset = {
+          name: name,
+          queryType: wiziQueryTypeSelect.value,
+          project: wiziProjectInput.value,
+          projectId: wiziProjectId.value,
+          subscription: wiziSubInput.value,
+          severity: getSelectedValues(document.getElementById('wizi-severity')),
+          status: getSelectedValues(wiziStatusSelect),
+          limit: document.getElementById('wizi-limit').value
+        };
+        var presets = getWiziPresets();
+        presets.push(preset);
+        localStorage.setItem(WIZI_PRESETS_KEY, JSON.stringify(presets));
+        loadWiziPresets();
+        showToast('פריסט "' + name + '" נשמר', 'success');
+      });
+
+      wiziPresetSelect.addEventListener('change', function() {
+        var idx = parseInt(this.value);
+        if (isNaN(idx)) { wiziPresetDeleteBtn.style.display = 'none'; return; }
+        var presets = getWiziPresets();
+        var p = presets[idx];
+        if (!p) return;
+
+        wiziQueryTypeSelect.value = p.queryType || 'issues';
+        wiziQueryTypeSelect.dispatchEvent(new Event('change'));
+        wiziProjectInput.value = p.project || '';
+        wiziProjectId.value = p.projectId || '';
+        wiziSubInput.value = p.subscription || '';
+        document.getElementById('wizi-limit').value = p.limit || '10';
+
+        // Set severity selections
+        if (p.severity) {
+          var sevSelect = document.getElementById('wizi-severity');
+          for (var i = 0; i < sevSelect.options.length; i++) {
+            sevSelect.options[i].selected = p.severity.indexOf(sevSelect.options[i].value) >= 0;
+          }
+        }
+        // Set status selections
+        if (p.status) {
+          for (var j = 0; j < wiziStatusSelect.options.length; j++) {
+            wiziStatusSelect.options[j].selected = p.status.indexOf(wiziStatusSelect.options[j].value) >= 0;
+          }
+        }
+
+        wiziPresetDeleteBtn.style.display = '';
+        showToast('פריסט "' + p.name + '" נטען', 'info');
+      });
+
+      wiziPresetDeleteBtn.addEventListener('click', function() {
+        var idx = parseInt(wiziPresetSelect.value);
+        if (isNaN(idx)) return;
+        var presets = getWiziPresets();
+        var name = presets[idx] ? presets[idx].name : '';
+        presets.splice(idx, 1);
+        localStorage.setItem(WIZI_PRESETS_KEY, JSON.stringify(presets));
+        loadWiziPresets();
+        wiziPresetDeleteBtn.style.display = 'none';
+        showToast('פריסט "' + name + '" נמחק', 'info');
+      });
+
+      loadWiziPresets();
 
       function importIssueFinding(issue) {
         var rules = issue.sourceRules || [];
