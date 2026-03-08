@@ -3928,7 +3928,11 @@
               inventoryFindings: 'EOLM'
             };
             var label = typeLabels[qt] || qt;
-            wiziFindIdStatus.textContent = '✓ יובא ממצא ' + label + ' — ' + (node.name || node.id || findingId);
+            var statusText = '✓ יובא ממצא ' + label + ' — ' + (node.name || node.id || findingId);
+            if (data.totalMatches && data.totalMatches > 1) {
+              statusText += ' (נמצאו ' + data.totalMatches + ' תוצאות, יובא הראשון)';
+            }
+            wiziFindIdStatus.textContent = statusText;
             showToast('ממצא ' + label + ' יובא בהצלחה', 'success');
           })
           .catch(function(e) {

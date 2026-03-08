@@ -975,7 +975,7 @@ def api_wizi_issues():
 
 @app.route("/api/wizi/find-by-id", methods=["POST"])
 def api_wizi_find_by_id():
-    """Fetch a single finding from Wizi by its ID. Tries multiple query types."""
+    """Fetch a single finding from Wizi by its ID or rule ID. Tries multiple query types and filter strategies."""
     if not WIZI_CLIENT_ID or not WIZI_CLIENT_SECRET:
         return jsonify({"error": "Wizi integration not configured"}), 501
 
@@ -984,20 +984,21 @@ def api_wizi_find_by_id():
     if not finding_id:
         return jsonify({"error": "No finding ID provided"}), 400
 
-    # Try each query type with an ID filter
+    # Query types to try with direct ID filter
     queries = [
-        ("issues", "IssueFilters", "issues", WIZI_ISSUES_QUERY),
-        ("configurationFindings", "ConfigurationFindingFilters", "configurationFindings", WIZI_CONFIG_FINDINGS_QUERY),
-        ("vulnerabilityFindings", "VulnerabilityFindingFilters", "vulnerabilityFindings", WIZI_VULN_FINDINGS_QUERY),
-        ("hostConfigurationRuleAssessments", "HostConfigurationRuleAssessmentFilters", "hostConfigurationRuleAssessments", WIZI_HOST_CONFIG_QUERY),
-        ("dataFindingsV2", "DataFindingFiltersV2", "dataFindingsV2", WIZI_DATA_FINDINGS_QUERY),
-        ("secretInstances", "SecretInstanceFilters", "secretInstances", WIZI_SECRET_INSTANCES_QUERY),
-        ("excessiveAccessFindings", "ExcessiveAccessFindingFilters", "excessiveAccessFindings", WIZI_EXCESSIVE_ACCESS_QUERY),
-        ("networkExposures", "NetworkExposureFilters", "networkExposures", WIZI_NETWORK_EXPOSURE_QUERY),
-        ("inventoryFindings", "InventoryFindingFilters", "inventoryFindings", WIZI_INVENTORY_FINDINGS_QUERY),
+        ("issues", "issues", WIZI_ISSUES_QUERY),
+        ("configurationFindings", "configurationFindings", WIZI_CONFIG_FINDINGS_QUERY),
+        ("vulnerabilityFindings", "vulnerabilityFindings", WIZI_VULN_FINDINGS_QUERY),
+        ("hostConfigurationRuleAssessments", "hostConfigurationRuleAssessments", WIZI_HOST_CONFIG_QUERY),
+        ("dataFindingsV2", "dataFindingsV2", WIZI_DATA_FINDINGS_QUERY),
+        ("secretInstances", "secretInstances", WIZI_SECRET_INSTANCES_QUERY),
+        ("excessiveAccessFindings", "excessiveAccessFindings", WIZI_EXCESSIVE_ACCESS_QUERY),
+        ("networkExposures", "networkExposures", WIZI_NETWORK_EXPOSURE_QUERY),
+        ("inventoryFindings", "inventoryFindings", WIZI_INVENTORY_FINDINGS_QUERY),
     ]
 
-    for qt, filter_type, root_key, gql in queries:
+    # Strategy 1: Direct ID filter (works for finding UUIDs)
+    for qt, root_key, gql in queries:
         try:
             variables: Dict[str, Any] = {"first": 1, "filterBy": {"id": finding_id}}
             result = _wizi_graphql(gql, variables)
@@ -1008,6 +1009,46 @@ def api_wizi_find_by_id():
                 return jsonify({"queryType": qt, "node": nodes[0]})
         except Exception:
             continue
+
+    # Strategy 2: Search by rule ID (e.g. wc-id-493) — issues use sourceRule filter
+    try:
+        variables = {"first": 5, "filterBy": {"sourceRule": [finding_id]}}
+        result = _wizi_graphql(WIZI_ISSUES_QUERY, variables)
+        nodes = result.get("data", {}).get("issues", {}).get("nodes", [])
+        if nodes:
+            return jsonify({"queryType": "issues", "node": nodes[0], "totalMatches": len(nodes)})
+    except Exception:
+        pass
+
+    # Strategy 3: Search config findings by rule ID
+    try:
+        variables = {"first": 5, "filterBy": {"rule": [finding_id]}}
+        result = _wizi_graphql(WIZI_CONFIG_FINDINGS_QUERY, variables)
+        nodes = result.get("data", {}).get("configurationFindings", {}).get("nodes", [])
+        if nodes:
+            return jsonify({"queryType": "configurationFindings", "node": nodes[0], "totalMatches": len(nodes)})
+    except Exception:
+        pass
+
+    # Strategy 4: Search host config by rule ID
+    try:
+        variables = {"first": 5, "filterBy": {"rule": [finding_id]}}
+        result = _wizi_graphql(WIZI_HOST_CONFIG_QUERY, variables)
+        nodes = result.get("data", {}).get("hostConfigurationRuleAssessments", {}).get("nodes", [])
+        if nodes:
+            return jsonify({"queryType": "hostConfigurationRuleAssessments", "node": nodes[0], "totalMatches": len(nodes)})
+    except Exception:
+        pass
+
+    # Strategy 5: Free-text search via issues (catches partial matches)
+    try:
+        variables = {"first": 5, "filterBy": {"search": finding_id}}
+        result = _wizi_graphql(WIZI_ISSUES_QUERY, variables)
+        nodes = result.get("data", {}).get("issues", {}).get("nodes", [])
+        if nodes:
+            return jsonify({"queryType": "issues", "node": nodes[0], "totalMatches": len(nodes)})
+    except Exception:
+        pass
 
     return jsonify({"error": "Finding not found", "id": finding_id}), 404
 
