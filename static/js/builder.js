@@ -389,8 +389,6 @@
         resetEditState();
         renderFindingsTable();
 
-        if (findings.length) switchToTab('tab-findings-list');
-
         statusMsg.textContent =
           'נטען דו"ח קיים' +
           (m.reportDate ? ' (תאריך דו"ח: ' + m.reportDate + ').' : '.');
