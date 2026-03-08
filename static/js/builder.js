@@ -2664,6 +2664,173 @@
       var wiziEnabled = false;
       var wiziProjects = [];
       var wiziSubscriptions = [];
+      var wiziQueryType = 'issues';
+      var wiziQueryTypeSelect = document.getElementById('wizi-query-type');
+      var wiziStatusSelect = document.getElementById('wizi-status');
+
+      // Status options per query type
+      var wiziStatusOptions = {
+        issues: [
+          { value: 'OPEN', text: 'Open', selected: true },
+          { value: 'IN_PROGRESS', text: 'In Progress', selected: true },
+          { value: 'RESOLVED', text: 'Resolved', selected: false },
+          { value: 'REJECTED', text: 'Rejected', selected: false }
+        ],
+        configurationFindings: [
+          { value: 'PASS', text: 'Pass', selected: false },
+          { value: 'FAIL', text: 'Fail', selected: true },
+          { value: 'ERROR', text: 'Error', selected: false },
+          { value: 'NOT_ASSESSED', text: 'Not Assessed', selected: false }
+        ],
+        vulnerabilityFindings: [
+          { value: 'OPEN', text: 'Open', selected: true },
+          { value: 'IN_PROGRESS', text: 'In Progress', selected: false },
+          { value: 'RESOLVED', text: 'Resolved', selected: false },
+          { value: 'REJECTED', text: 'Rejected', selected: false }
+        ],
+        hostConfigurationRuleAssessments: [
+          { value: 'OPEN', text: 'Open', selected: true },
+          { value: 'IN_PROGRESS', text: 'In Progress', selected: false },
+          { value: 'RESOLVED', text: 'Resolved', selected: false },
+          { value: 'REJECTED', text: 'Rejected', selected: false }
+        ],
+        dataFindingsV2: [
+          { value: 'OPEN', text: 'Open', selected: true },
+          { value: 'IN_PROGRESS', text: 'In Progress', selected: false },
+          { value: 'RESOLVED', text: 'Resolved', selected: false },
+          { value: 'REJECTED', text: 'Rejected', selected: false }
+        ],
+        secretInstances: [
+          { value: 'OPEN', text: 'Open', selected: true },
+          { value: 'IN_PROGRESS', text: 'In Progress', selected: false },
+          { value: 'RESOLVED', text: 'Resolved', selected: false },
+          { value: 'REJECTED', text: 'Rejected', selected: false }
+        ],
+        excessiveAccessFindings: [
+          { value: 'OPEN', text: 'Open', selected: true },
+          { value: 'IN_PROGRESS', text: 'In Progress', selected: false },
+          { value: 'RESOLVED', text: 'Resolved', selected: false },
+          { value: 'REJECTED', text: 'Rejected', selected: false }
+        ],
+        networkExposures: [],
+        inventoryFindings: [
+          { value: 'OPEN', text: 'Open', selected: true },
+          { value: 'IN_PROGRESS', text: 'In Progress', selected: false },
+          { value: 'RESOLVED', text: 'Resolved', selected: false },
+          { value: 'REJECTED', text: 'Rejected', selected: false }
+        ]
+      };
+
+      // Severity options per query type
+      var wiziSeverityOptions = {
+        issues: [
+          { value: 'CRITICAL', text: 'Critical', selected: true },
+          { value: 'HIGH', text: 'High', selected: true },
+          { value: 'MEDIUM', text: 'Medium', selected: false },
+          { value: 'LOW', text: 'Low', selected: false },
+          { value: 'INFORMATIONAL', text: 'Informational', selected: false }
+        ],
+        configurationFindings: [
+          { value: 'CRITICAL', text: 'Critical', selected: true },
+          { value: 'HIGH', text: 'High', selected: true },
+          { value: 'MEDIUM', text: 'Medium', selected: false },
+          { value: 'LOW', text: 'Low', selected: false },
+          { value: 'NONE', text: 'None', selected: false }
+        ],
+        vulnerabilityFindings: [
+          { value: 'CRITICAL', text: 'Critical', selected: true },
+          { value: 'HIGH', text: 'High', selected: true },
+          { value: 'MEDIUM', text: 'Medium', selected: false },
+          { value: 'LOW', text: 'Low', selected: false },
+          { value: 'NONE', text: 'None', selected: false }
+        ],
+        hostConfigurationRuleAssessments: [
+          { value: 'CRITICAL', text: 'Critical', selected: true },
+          { value: 'HIGH', text: 'High', selected: true },
+          { value: 'MEDIUM', text: 'Medium', selected: false },
+          { value: 'LOW', text: 'Low', selected: false },
+          { value: 'INFORMATIONAL', text: 'Informational', selected: false }
+        ],
+        dataFindingsV2: [
+          { value: 'CRITICAL', text: 'Critical', selected: true },
+          { value: 'HIGH', text: 'High', selected: true },
+          { value: 'MEDIUM', text: 'Medium', selected: false },
+          { value: 'LOW', text: 'Low', selected: false },
+          { value: 'INFO', text: 'Info', selected: false }
+        ],
+        secretInstances: [
+          { value: 'CRITICAL', text: 'Critical', selected: true },
+          { value: 'HIGH', text: 'High', selected: true },
+          { value: 'MEDIUM', text: 'Medium', selected: false },
+          { value: 'LOW', text: 'Low', selected: false },
+          { value: 'INFORMATIONAL', text: 'Informational', selected: false }
+        ],
+        excessiveAccessFindings: [
+          { value: 'CRITICAL', text: 'Critical', selected: true },
+          { value: 'HIGH', text: 'High', selected: true },
+          { value: 'MEDIUM', text: 'Medium', selected: false },
+          { value: 'LOW', text: 'Low', selected: false }
+        ],
+        networkExposures: [],
+        inventoryFindings: [
+          { value: 'CRITICAL', text: 'Critical', selected: true },
+          { value: 'HIGH', text: 'High', selected: true },
+          { value: 'MEDIUM', text: 'Medium', selected: false },
+          { value: 'LOW', text: 'Low', selected: false },
+          { value: 'INFORMATIONAL', text: 'Informational', selected: false }
+        ]
+      };
+
+      var wiziSeveritySelect = document.getElementById('wizi-severity');
+
+      function updateWiziFilterOptions() {
+        var qt = wiziQueryTypeSelect.value;
+        // Update status/result
+        var statusOpts = wiziStatusOptions[qt] || wiziStatusOptions.issues;
+        wiziStatusSelect.innerHTML = '';
+        if (statusOpts.length) {
+          wiziStatusSelect.disabled = false;
+          statusOpts.forEach(function(o) {
+            var opt = document.createElement('option');
+            opt.value = o.value;
+            opt.textContent = o.text;
+            opt.selected = o.selected;
+            wiziStatusSelect.appendChild(opt);
+          });
+        } else {
+          wiziStatusSelect.disabled = true;
+          var opt = document.createElement('option');
+          opt.textContent = '— לא רלוונטי —';
+          wiziStatusSelect.appendChild(opt);
+        }
+        var statusLabel = wiziStatusSelect.previousElementSibling;
+        if (statusLabel && statusLabel.tagName === 'LABEL') {
+          statusLabel.textContent = qt === 'configurationFindings' ? 'תוצאה (Result)' : 'סטטוס';
+        }
+        // Update severity
+        var sevOpts = wiziSeverityOptions[qt] || wiziSeverityOptions.issues;
+        wiziSeveritySelect.innerHTML = '';
+        if (sevOpts.length) {
+          wiziSeveritySelect.disabled = false;
+          sevOpts.forEach(function(o) {
+            var opt = document.createElement('option');
+            opt.value = o.value;
+            opt.textContent = o.text;
+            opt.selected = o.selected;
+            wiziSeveritySelect.appendChild(opt);
+          });
+        } else {
+          wiziSeveritySelect.disabled = true;
+          var opt = document.createElement('option');
+          opt.textContent = '— לא רלוונטי —';
+          wiziSeveritySelect.appendChild(opt);
+        }
+      }
+
+      wiziQueryTypeSelect.addEventListener('change', function() {
+        wiziQueryType = this.value;
+        updateWiziFilterOptions();
+      });
 
       // --- Autocomplete helper ---
       function setupAutocomplete(input, hiddenInput, listEl, getItems) {
@@ -2814,7 +2981,7 @@
       }
 
       function mapWiziSeverity(sev) {
-        var m = { CRITICAL: 'critical', HIGH: 'high', MEDIUM: 'medium', LOW: 'low', INFORMATIONAL: 'info' };
+        var m = { CRITICAL: 'critical', HIGH: 'high', MEDIUM: 'medium', LOW: 'low', INFORMATIONAL: 'info', INFO: 'info', NONE: 'info' };
         return m[(sev || '').toUpperCase()] || 'medium';
       }
 
@@ -2843,8 +3010,37 @@
           wiziActionsDiv.style.display = 'none';
           return;
         }
+        var renderers = {
+          configurationFindings: renderWiziConfigTable,
+          vulnerabilityFindings: renderWiziVulnTable,
+          hostConfigurationRuleAssessments: renderWiziHostConfigTable,
+          dataFindingsV2: renderWiziDataTable,
+          secretInstances: renderWiziSecretTable,
+          excessiveAccessFindings: renderWiziExcessiveAccessTable,
+          networkExposures: renderWiziNetworkTable,
+          inventoryFindings: renderWiziInventoryTable
+        };
+        var fn = renderers[wiziQueryType] || renderWiziIssuesTable;
+        fn();
+      }
 
-        var html = '<table><caption>ממצאי Wizi — סמן לייבוא</caption><thead><tr>' +
+      function wireWiziCheckboxes() {
+        var checkAll = document.getElementById('wizi-check-all');
+        if (checkAll) {
+          checkAll.addEventListener('change', function() {
+            var checked = this.checked;
+            document.querySelectorAll('.wizi-check').forEach(function(cb) { cb.checked = checked; });
+            updateWiziSelectedCount();
+          });
+        }
+        wiziResults.addEventListener('change', function(e) {
+          if (e.target.classList.contains('wizi-check')) updateWiziSelectedCount();
+        });
+        updateWiziSelectedCount();
+      }
+
+      function renderWiziIssuesTable() {
+        var html = '<table><caption>ממצאי Wizi — Issues — סמן לייבוא</caption><thead><tr>' +
           '<th><input type="checkbox" id="wizi-check-all" checked></th>' +
           '<th>Rule</th><th>חומרה</th><th>Entity</th><th>Subscription</th><th>Cloud</th><th>Region</th><th>סטטוס</th>' +
           '</tr></thead><tbody>';
@@ -2871,20 +3067,227 @@
         html += '</tbody></table>';
         wiziResults.innerHTML = html;
         wiziActionsDiv.style.display = '';
+        wireWiziCheckboxes();
+      }
 
-        // Check-all toggle
-        document.getElementById('wizi-check-all').addEventListener('change', function() {
-          var checked = this.checked;
-          document.querySelectorAll('.wizi-check').forEach(function(cb) { cb.checked = checked; });
-          updateWiziSelectedCount();
+      function renderWiziConfigTable() {
+        var html = '<table><caption>ממצאי Wizi — Configuration Findings — סמן לייבוא</caption><thead><tr>' +
+          '<th><input type="checkbox" id="wizi-check-all" checked></th>' +
+          '<th>Rule</th><th>חומרה</th><th>תוצאה</th><th>Resource</th><th>Type</th><th>Subscription</th><th>Region</th>' +
+          '</tr></thead><tbody>';
+
+        wiziIssues.forEach(function(item, idx) {
+          var sev = (item.severity || 'MEDIUM').toUpperCase();
+          var sevClass = 'sev-' + mapWiziSeverity(sev);
+          var rule = item.rule || {};
+          var resource = item.resource || {};
+          var sub = resource.subscription || {};
+          var resultBadge = (item.result || '').toUpperCase();
+          var resultClass = resultBadge === 'FAIL' ? 'sev-high' : resultBadge === 'PASS' ? 'sev-low' : 'sev-medium';
+          html += '<tr>' +
+            '<td><input type="checkbox" class="wizi-check" data-idx="' + idx + '" checked></td>' +
+            '<td title="' + (rule.description || '').replace(/"/g, '&quot;') + '">' + (rule.name || item.name || 'N/A') + '</td>' +
+            '<td><span class="severity-chip ' + sevClass + '">' + sev + '</span></td>' +
+            '<td><span class="severity-chip ' + resultClass + '">' + resultBadge + '</span></td>' +
+            '<td>' + (resource.name || 'N/A') + '</td>' +
+            '<td><span class="muted">' + (resource.nativeType || resource.type || '') + '</span></td>' +
+            '<td>' + (sub.name || '') + '</td>' +
+            '<td>' + (resource.region || '') + '</td>' +
+            '</tr>';
         });
 
-        // Individual checkbox change
-        wiziResults.addEventListener('change', function(e) {
-          if (e.target.classList.contains('wizi-check')) updateWiziSelectedCount();
+        html += '</tbody></table>';
+        wiziResults.innerHTML = html;
+        wiziActionsDiv.style.display = '';
+        wireWiziCheckboxes();
+      }
+
+      function renderWiziVulnTable() {
+        var html = '<table><caption>ממצאי Wizi — Vulnerability Findings — סמן לייבוא</caption><thead><tr>' +
+          '<th><input type="checkbox" id="wizi-check-all" checked></th>' +
+          '<th>CVE / Name</th><th>חומרה</th><th>Score</th><th>Exploit</th><th>Fix</th><th>Fixed Version</th><th>סטטוס</th>' +
+          '</tr></thead><tbody>';
+
+        wiziIssues.forEach(function(item, idx) {
+          var sev = (item.severity || 'MEDIUM').toUpperCase();
+          var sevClass = 'sev-' + mapWiziSeverity(sev);
+          var exploitBadge = item.hasExploit ? '<span class="severity-chip sev-critical">כן</span>' : '<span class="muted">לא</span>';
+          var fixBadge = item.hasFix ? '<span class="severity-chip sev-low">כן</span>' : '<span class="muted">לא</span>';
+          html += '<tr>' +
+            '<td><input type="checkbox" class="wizi-check" data-idx="' + idx + '" checked></td>' +
+            '<td title="' + (item.CVEDescription || item.description || '').replace(/"/g, '&quot;') + '">' + (item.name || item.detailedName || 'N/A') + '</td>' +
+            '<td><span class="severity-chip ' + sevClass + '">' + sev + '</span></td>' +
+            '<td>' + (item.score != null ? item.score.toFixed(1) : '—') + '</td>' +
+            '<td>' + exploitBadge + '</td>' +
+            '<td>' + fixBadge + '</td>' +
+            '<td>' + (item.fixedVersion || '—') + '</td>' +
+            '<td>' + (item.status || '') + '</td>' +
+            '</tr>';
         });
 
-        updateWiziSelectedCount();
+        html += '</tbody></table>';
+        wiziResults.innerHTML = html;
+        wiziActionsDiv.style.display = '';
+        wireWiziCheckboxes();
+      }
+
+      function renderWiziHostConfigTable() {
+        var html = '<table><caption>ממצאי Wizi — Host Configuration — סמן לייבוא</caption><thead><tr>' +
+          '<th><input type="checkbox" id="wizi-check-all" checked></th>' +
+          '<th>Rule</th><th>חומרה</th><th>תוצאה</th><th>Resource</th><th>Type</th><th>Cloud</th><th>Region</th>' +
+          '</tr></thead><tbody>';
+        wiziIssues.forEach(function(item, idx) {
+          var sev = (item.severity || 'MEDIUM').toUpperCase();
+          var sevClass = 'sev-' + mapWiziSeverity(sev);
+          var rule = item.rule || {};
+          var res = item.resource || {};
+          var sub = res.subscription || {};
+          var resultBadge = (item.result || '').toUpperCase();
+          var resultClass = resultBadge === 'FAIL' ? 'sev-high' : resultBadge === 'PASS' ? 'sev-low' : 'sev-medium';
+          html += '<tr>' +
+            '<td><input type="checkbox" class="wizi-check" data-idx="' + idx + '" checked></td>' +
+            '<td title="' + (rule.description || '').replace(/"/g, '&quot;') + '">' + (rule.name || 'N/A') + '</td>' +
+            '<td><span class="severity-chip ' + sevClass + '">' + sev + '</span></td>' +
+            '<td><span class="severity-chip ' + resultClass + '">' + resultBadge + '</span></td>' +
+            '<td>' + (res.name || 'N/A') + '</td>' +
+            '<td><span class="muted">' + (res.nativeType || '') + '</span></td>' +
+            '<td>' + (res.cloudPlatform || '') + '</td>' +
+            '<td>' + (res.region || '') + '</td>' +
+            '</tr>';
+        });
+        html += '</tbody></table>';
+        wiziResults.innerHTML = html;
+        wiziActionsDiv.style.display = '';
+        wireWiziCheckboxes();
+      }
+
+      function renderWiziDataTable() {
+        var html = '<table><caption>ממצאי Wizi — Data Findings — סמן לייבוא</caption><thead><tr>' +
+          '<th><input type="checkbox" id="wizi-check-all" checked></th>' +
+          '<th>Classifier</th><th>חומרה</th><th>Entity</th><th>Cloud Account</th><th>סטטוס</th>' +
+          '</tr></thead><tbody>';
+        wiziIssues.forEach(function(item, idx) {
+          var sev = (item.severity || 'MEDIUM').toUpperCase();
+          var sevClass = 'sev-' + mapWiziSeverity(sev);
+          var classifier = item.dataClassifier || {};
+          var entity = item.graphEntity || {};
+          var account = item.cloudAccount || {};
+          html += '<tr>' +
+            '<td><input type="checkbox" class="wizi-check" data-idx="' + idx + '" checked></td>' +
+            '<td>' + (item.name || classifier.name || 'N/A') + '<br><span class="muted">' + (classifier.category || '') + '</span></td>' +
+            '<td><span class="severity-chip ' + sevClass + '">' + sev + '</span></td>' +
+            '<td>' + (entity.name || 'N/A') + '<br><span class="muted">' + (entity.type || '') + '</span></td>' +
+            '<td>' + (account.name || '') + '<br><span class="muted">' + (account.cloudProvider || '') + '</span></td>' +
+            '<td>' + (item.status || '') + '</td>' +
+            '</tr>';
+        });
+        html += '</tbody></table>';
+        wiziResults.innerHTML = html;
+        wiziActionsDiv.style.display = '';
+        wireWiziCheckboxes();
+      }
+
+      function renderWiziSecretTable() {
+        var html = '<table><caption>ממצאי Wizi — Secrets — סמן לייבוא</caption><thead><tr>' +
+          '<th><input type="checkbox" id="wizi-check-all" checked></th>' +
+          '<th>Secret</th><th>חומרה</th><th>Type</th><th>Resource</th><th>Path</th><th>סטטוס</th>' +
+          '</tr></thead><tbody>';
+        wiziIssues.forEach(function(item, idx) {
+          var sev = (item.severity || 'MEDIUM').toUpperCase();
+          var sevClass = 'sev-' + mapWiziSeverity(sev);
+          var res = item.resource || {};
+          var rule = item.rule || {};
+          html += '<tr>' +
+            '<td><input type="checkbox" class="wizi-check" data-idx="' + idx + '" checked></td>' +
+            '<td title="' + (rule.name || '').replace(/"/g, '&quot;') + '">' + (item.name || 'N/A') + '</td>' +
+            '<td><span class="severity-chip ' + sevClass + '">' + sev + '</span></td>' +
+            '<td>' + (item.type || '') + '</td>' +
+            '<td>' + (res.name || 'N/A') + '<br><span class="muted">' + (res.nativeType || '') + '</span></td>' +
+            '<td class="muted" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;" title="' + (item.path || '').replace(/"/g, '&quot;') + '">' + (item.path || '') + '</td>' +
+            '<td>' + (item.status || '') + '</td>' +
+            '</tr>';
+        });
+        html += '</tbody></table>';
+        wiziResults.innerHTML = html;
+        wiziActionsDiv.style.display = '';
+        wireWiziCheckboxes();
+      }
+
+      function renderWiziExcessiveAccessTable() {
+        var html = '<table><caption>ממצאי Wizi — Excessive Access — סמן לייבוא</caption><thead><tr>' +
+          '<th><input type="checkbox" id="wizi-check-all" checked></th>' +
+          '<th>Finding</th><th>חומרה</th><th>Principal</th><th>Cloud</th><th>Remediation</th><th>סטטוס</th>' +
+          '</tr></thead><tbody>';
+        wiziIssues.forEach(function(item, idx) {
+          var sev = (item.severity || 'MEDIUM').toUpperCase();
+          var sevClass = 'sev-' + mapWiziSeverity(sev);
+          var principal = item.principal || {};
+          var ge = principal.graphEntity || {};
+          var ca = principal.cloudAccount || {};
+          html += '<tr>' +
+            '<td><input type="checkbox" class="wizi-check" data-idx="' + idx + '" checked></td>' +
+            '<td title="' + (item.description || '').replace(/"/g, '&quot;') + '">' + (item.name || 'N/A') + '</td>' +
+            '<td><span class="severity-chip ' + sevClass + '">' + sev + '</span></td>' +
+            '<td>' + (ge.name || 'N/A') + '<br><span class="muted">' + (ca.name || '') + '</span></td>' +
+            '<td>' + (item.cloudPlatform || '') + '</td>' +
+            '<td><span class="muted">' + (item.remediationType || '') + '</span></td>' +
+            '<td>' + (item.status || '') + '</td>' +
+            '</tr>';
+        });
+        html += '</tbody></table>';
+        wiziResults.innerHTML = html;
+        wiziActionsDiv.style.display = '';
+        wireWiziCheckboxes();
+      }
+
+      function renderWiziNetworkTable() {
+        var html = '<table><caption>ממצאי Wizi — Network Exposure — סמן לייבוא</caption><thead><tr>' +
+          '<th><input type="checkbox" id="wizi-check-all" checked></th>' +
+          '<th>Exposed Entity</th><th>Type</th><th>Source IP</th><th>Port Range</th><th>Exposure Type</th>' +
+          '</tr></thead><tbody>';
+        wiziIssues.forEach(function(item, idx) {
+          var entity = item.exposedEntity || {};
+          html += '<tr>' +
+            '<td><input type="checkbox" class="wizi-check" data-idx="' + idx + '" checked></td>' +
+            '<td>' + (entity.name || 'N/A') + '</td>' +
+            '<td><span class="muted">' + (entity.type || '') + '</span></td>' +
+            '<td>' + (item.sourceIpRange || '') + '</td>' +
+            '<td>' + (item.portRange || '') + '</td>' +
+            '<td>' + (item.type || '') + '</td>' +
+            '</tr>';
+        });
+        html += '</tbody></table>';
+        wiziResults.innerHTML = html;
+        wiziActionsDiv.style.display = '';
+        wireWiziCheckboxes();
+      }
+
+      function renderWiziInventoryTable() {
+        var html = '<table><caption>ממצאי Wizi — Inventory / EOL — סמן לייבוא</caption><thead><tr>' +
+          '<th><input type="checkbox" id="wizi-check-all" checked></th>' +
+          '<th>Rule</th><th>חומרה</th><th>Resource</th><th>Type</th><th>Cloud</th><th>Region</th><th>סטטוס</th>' +
+          '</tr></thead><tbody>';
+        wiziIssues.forEach(function(item, idx) {
+          var sev = (item.severity || 'MEDIUM').toUpperCase();
+          var sevClass = 'sev-' + mapWiziSeverity(sev);
+          var rule = item.rule || {};
+          var res = item.resource || {};
+          var ca = res.cloudAccount || {};
+          html += '<tr>' +
+            '<td><input type="checkbox" class="wizi-check" data-idx="' + idx + '" checked></td>' +
+            '<td title="' + (rule.description || '').replace(/"/g, '&quot;') + '">' + (rule.name || 'N/A') + '</td>' +
+            '<td><span class="severity-chip ' + sevClass + '">' + sev + '</span></td>' +
+            '<td>' + (res.name || 'N/A') + '</td>' +
+            '<td><span class="muted">' + (res.nativeType || '') + '</span></td>' +
+            '<td>' + (ca.name || res.cloudPlatform || '') + '</td>' +
+            '<td>' + (res.region || '') + '</td>' +
+            '<td>' + (item.status || '') + '</td>' +
+            '</tr>';
+        });
+        html += '</tbody></table>';
+        wiziResults.innerHTML = html;
+        wiziActionsDiv.style.display = '';
+        wireWiziCheckboxes();
       }
 
       wiziFetchBtn.addEventListener('click', function() {
@@ -2898,8 +3301,10 @@
       });
 
       function fetchWiziIssues(append) {
+        var qt = wiziQueryTypeSelect.value;
+        wiziQueryType = qt;
         var sevFilter = getSelectedValues(document.getElementById('wizi-severity'));
-        var statusFilter = getSelectedValues(document.getElementById('wizi-status'));
+        var statusFilter = getSelectedValues(wiziStatusSelect);
         var limit = parseInt(document.getElementById('wizi-limit').value) || 10;
         var project = wiziProjectId.value || wiziProjectInput.value.trim() || null;
         var subscription = wiziSubInput.value.trim() || null;
@@ -2907,7 +3312,7 @@
         wiziFetchBtn.disabled = true;
         wiziStatusMsg.textContent = 'שולף ממצאים מ-Wizi...';
 
-        var body = { first: limit, severity: sevFilter, status: statusFilter };
+        var body = { queryType: qt, first: limit, severity: sevFilter, status: statusFilter };
         if (project) body.project = project;
         if (subscription) body.subscription = subscription;
         if (append && wiziEndCursor) body.after = wiziEndCursor;
@@ -2923,9 +3328,20 @@
             wiziStatusMsg.textContent = 'שגיאה: ' + data.error;
             return;
           }
-          var issues = data.issues || {};
-          var nodes = issues.nodes || [];
-          var pageInfo = issues.pageInfo || {};
+          var rootKey = data.queryType || qt;
+          var resultSet = data[rootKey] || {};
+          var nodes = resultSet.nodes || [];
+          var pageInfo = resultSet.pageInfo || {};
+
+          // Client-side subscription name filter for non-issues query types
+          // (issues use server-side relatedEntity.subscriptionSearch)
+          var subFilter = subscription && qt !== 'issues' ? subscription.toLowerCase() : null;
+          if (subFilter) {
+            nodes = nodes.filter(function(n) {
+              var subName = getNodeSubscriptionName(n, qt);
+              return subName && subName.toLowerCase().indexOf(subFilter) >= 0;
+            });
+          }
 
           if (append) {
             wiziIssues = wiziIssues.concat(nodes);
@@ -2937,9 +3353,19 @@
           wiziHasNextPage = pageInfo.hasNextPage || false;
           wiziLoadMoreBtn.style.display = wiziHasNextPage ? '' : 'none';
 
-          wiziStatusMsg.textContent = 'נמצאו ' + wiziIssues.length + ' ממצאים' +
-            (issues.totalCount ? ' (מתוך ' + issues.totalCount + ')' : '') +
-            (wiziHasNextPage ? ' — יש עוד' : '');
+          var typeLabels = {
+            issues: 'issues', configurationFindings: 'configuration findings',
+            vulnerabilityFindings: 'vulnerability findings',
+            hostConfigurationRuleAssessments: 'host config findings',
+            dataFindingsV2: 'data findings', secretInstances: 'secrets',
+            excessiveAccessFindings: 'excessive access findings',
+            networkExposures: 'network exposures', inventoryFindings: 'inventory findings'
+          };
+          var countText = 'נמצאו ' + wiziIssues.length + ' ' + (typeLabels[qt] || 'ממצאים');
+          if (resultSet.totalCount) countText += ' (מתוך ' + resultSet.totalCount + ')';
+          if (subFilter) countText += ' [סינון: ' + subscription + ']';
+          if (wiziHasNextPage) countText += ' — יש עוד';
+          wiziStatusMsg.textContent = countText;
 
           renderWiziTable();
         })
@@ -2949,6 +3375,33 @@
         .finally(function() {
           wiziFetchBtn.disabled = false;
         });
+      }
+
+      // Extract subscription name from a finding node based on query type
+      function getNodeSubscriptionName(node, qt) {
+        if (qt === 'issues') {
+          var es = node.entitySnapshot || {};
+          return es.subscriptionName || '';
+        }
+        if (qt === 'configurationFindings' || qt === 'hostConfigurationRuleAssessments' || qt === 'inventoryFindings') {
+          var res = node.resource || {};
+          var sub = res.subscription || res.cloudAccount || {};
+          return sub.name || '';
+        }
+        if (qt === 'dataFindingsV2') {
+          var ca = node.cloudAccount || {};
+          return ca.name || '';
+        }
+        if (qt === 'secretInstances') {
+          var sr = node.resource || {};
+          return sr.name || '';
+        }
+        if (qt === 'excessiveAccessFindings') {
+          var p = node.principal || {};
+          var pca = p.cloudAccount || {};
+          return pca.name || '';
+        }
+        return '';
       }
 
       wiziSelectAllBtn.addEventListener('click', function() {
@@ -2973,38 +3426,19 @@
         }
 
         var imported = 0;
-        selected.forEach(function(issue) {
-          var rules = issue.sourceRules || [];
-          var rule = rules.length ? rules[0] : {};
-          var entity = issue.entitySnapshot || {};
-          var sev = mapWiziSeverity(issue.severity);
-          var cat = mapWiziCategory(entity);
-          var id = generateNextId(cat);
-
-          var technical = [];
-          if (entity.cloudPlatform) technical.push('Cloud: ' + entity.cloudPlatform);
-          if (entity.subscriptionName) technical.push('Subscription: ' + entity.subscriptionName);
-          if (entity.region) technical.push('Region: ' + entity.region);
-          if (entity.name) technical.push('Entity: ' + entity.name);
-          if (entity.nativeType) technical.push('Type: ' + entity.nativeType);
-
-          var recs = '';
-          var notes = (issue.notes || []).map(function(n) { return n.text || ''; }).filter(Boolean);
-          if (notes.length) recs = notes.join('\n');
-
-          findings.push({
-            id: id,
-            category: cat,
-            title: rule.name || issue.description || 'Wizi Issue ' + issue.id,
-            severity: sev,
-            description: splitLines(rule.description || issue.description || ''),
-            impact: [],
-            technical: splitLines(technical.join('\n')),
-            policies: [],
-            recs: splitLines(recs),
-            priority: '',
-            evidence: []
-          });
+        selected.forEach(function(item) {
+          var importers = {
+            configurationFindings: importConfigFinding,
+            vulnerabilityFindings: importVulnFinding,
+            hostConfigurationRuleAssessments: importHostConfigFinding,
+            dataFindingsV2: importDataFinding,
+            secretInstances: importSecretFinding,
+            excessiveAccessFindings: importExcessiveAccessFinding,
+            networkExposures: importNetworkExposureFinding,
+            inventoryFindings: importInventoryFinding
+          };
+          var fn = importers[wiziQueryType] || importIssueFinding;
+          fn(item);
           imported++;
         });
 
@@ -3014,5 +3448,253 @@
         switchToTab('tab-findings-list');
         statusMsg.textContent = 'יובאו ' + imported + ' ממצאים מ-Wizi. סה"כ: ' + findings.length;
       });
+
+      function importIssueFinding(issue) {
+        var rules = issue.sourceRules || [];
+        var rule = rules.length ? rules[0] : {};
+        var entity = issue.entitySnapshot || {};
+        var sev = mapWiziSeverity(issue.severity);
+        var cat = mapWiziCategory(entity);
+        var id = generateNextId(cat);
+
+        var technical = [];
+        if (entity.cloudPlatform) technical.push('Cloud: ' + entity.cloudPlatform);
+        if (entity.subscriptionName) technical.push('Subscription: ' + entity.subscriptionName);
+        if (entity.region) technical.push('Region: ' + entity.region);
+        if (entity.name) technical.push('Entity: ' + entity.name);
+        if (entity.nativeType) technical.push('Type: ' + entity.nativeType);
+
+        var recs = '';
+        var notes = (issue.notes || []).map(function(n) { return n.text || ''; }).filter(Boolean);
+        if (notes.length) recs = notes.join('\n');
+
+        findings.push({
+          id: id,
+          category: cat,
+          title: rule.name || issue.description || 'Wizi Issue ' + issue.id,
+          severity: sev,
+          description: splitLines(rule.description || issue.description || ''),
+          impact: [],
+          technical: splitLines(technical.join('\n')),
+          policies: [],
+          recs: splitLines(recs),
+          priority: '',
+          evidence: []
+        });
+      }
+
+      function importConfigFinding(item) {
+        var rule = item.rule || {};
+        var resource = item.resource || {};
+        var sub = resource.subscription || {};
+        var sev = mapWiziSeverity(item.severity);
+        var cat = 'CSPM';
+        var id = generateNextId(cat);
+
+        var technical = [];
+        if (sub.cloudProvider) technical.push('Cloud: ' + sub.cloudProvider);
+        if (sub.name) technical.push('Subscription: ' + sub.name);
+        if (resource.region) technical.push('Region: ' + resource.region);
+        if (resource.name) technical.push('Resource: ' + resource.name);
+        if (resource.nativeType || resource.type) technical.push('Type: ' + (resource.nativeType || resource.type));
+        if (item.result) technical.push('Result: ' + item.result);
+
+        var policies = [];
+        (item.securitySubCategories || []).forEach(function(sc) {
+          var label = '';
+          if (sc.category && sc.category.name) label += sc.category.name;
+          if (sc.title) label += (label ? ' — ' : '') + sc.title;
+          if (sc.framework && sc.framework.name) label += ' (' + sc.framework.name + ')';
+          if (label) policies.push(label);
+        });
+
+        findings.push({
+          id: id,
+          category: cat,
+          title: rule.name || item.name || 'Config Finding ' + item.id,
+          severity: sev,
+          description: splitLines(rule.description || ''),
+          impact: [],
+          technical: splitLines(technical.join('\n')),
+          policies: policies,
+          recs: [],
+          priority: '',
+          evidence: []
+        });
+      }
+
+      function importVulnFinding(item) {
+        var sev = mapWiziSeverity(item.severity);
+        var cat = 'VULN';
+        var id = generateNextId(cat);
+
+        var technical = [];
+        if (item.score != null) technical.push('CVSS Score: ' + item.score);
+        if (item.version) technical.push('Affected Version: ' + item.version);
+        if (item.hasExploit) technical.push('Exploit Available: כן');
+        if (item.hasFix) technical.push('Fix Available: כן');
+        if (item.fixedVersion) technical.push('Fixed Version: ' + item.fixedVersion);
+        var projects = (item.projects || []).map(function(p) { return p.name; }).filter(Boolean);
+        if (projects.length) technical.push('Projects: ' + projects.join(', '));
+        if (item.firstDetectedAt) technical.push('First Detected: ' + item.firstDetectedAt.split('T')[0]);
+
+        var recs = [];
+        if (item.remediation) recs.push(item.remediation);
+        if (item.fixedVersion) recs.push('עדכון לגרסה: ' + item.fixedVersion);
+
+        findings.push({
+          id: id,
+          category: cat,
+          title: item.name || item.detailedName || 'Vuln Finding ' + item.id,
+          severity: sev,
+          description: splitLines(item.CVEDescription || item.description || ''),
+          impact: [],
+          technical: splitLines(technical.join('\n')),
+          policies: [],
+          recs: splitLines(recs.join('\n')),
+          priority: '',
+          evidence: []
+        });
+      }
+
+      function importHostConfigFinding(item) {
+        var sev = mapWiziSeverity(item.severity);
+        var cat = 'HSPM';
+        var id = generateNextId(cat);
+        var rule = item.rule || {};
+        var res = item.resource || {};
+        var sub = res.subscription || {};
+        var technical = [];
+        if (res.cloudPlatform) technical.push('Cloud: ' + res.cloudPlatform);
+        if (sub.name) technical.push('Subscription: ' + sub.name);
+        if (res.region) technical.push('Region: ' + res.region);
+        if (res.name) technical.push('Resource: ' + res.name);
+        if (res.nativeType) technical.push('Type: ' + res.nativeType);
+        if (item.result) technical.push('Result: ' + item.result);
+        findings.push({
+          id: id, category: cat,
+          title: rule.name || 'Host Config Finding ' + item.id,
+          severity: sev,
+          description: splitLines(rule.description || ''),
+          impact: [], technical: splitLines(technical.join('\n')),
+          policies: [], recs: [], priority: '', evidence: []
+        });
+      }
+
+      function importDataFinding(item) {
+        var sev = mapWiziSeverity(item.severity);
+        var cat = 'DSPM';
+        var id = generateNextId(cat);
+        var classifier = item.dataClassifier || {};
+        var entity = item.graphEntity || {};
+        var account = item.cloudAccount || {};
+        var technical = [];
+        if (account.cloudProvider) technical.push('Cloud: ' + account.cloudProvider);
+        if (account.name) technical.push('Account: ' + account.name);
+        if (entity.name) technical.push('Entity: ' + entity.name);
+        if (entity.type) technical.push('Type: ' + entity.type);
+        if (classifier.category) technical.push('Category: ' + classifier.category);
+        findings.push({
+          id: id, category: cat,
+          title: item.name || classifier.name || 'Data Finding ' + item.id,
+          severity: sev,
+          description: splitLines('זוהה מידע רגיש מסוג ' + (classifier.name || item.name || 'לא ידוע')),
+          impact: [], technical: splitLines(technical.join('\n')),
+          policies: [], recs: [], priority: '', evidence: []
+        });
+      }
+
+      function importSecretFinding(item) {
+        var sev = mapWiziSeverity(item.severity);
+        var cat = 'SECR';
+        var id = generateNextId(cat);
+        var res = item.resource || {};
+        var rule = item.rule || {};
+        var technical = [];
+        if (res.cloudPlatform) technical.push('Cloud: ' + res.cloudPlatform);
+        if (res.name) technical.push('Resource: ' + res.name);
+        if (res.nativeType) technical.push('Type: ' + res.nativeType);
+        if (res.region) technical.push('Region: ' + res.region);
+        if (item.type) technical.push('Secret Type: ' + item.type);
+        if (item.path) technical.push('Path: ' + item.path);
+        findings.push({
+          id: id, category: cat,
+          title: item.name || rule.name || 'Secret Finding ' + item.id,
+          severity: sev,
+          description: splitLines('זוהה סוד חשוף מסוג ' + (item.type || 'לא ידוע')),
+          impact: [], technical: splitLines(technical.join('\n')),
+          policies: [], recs: [], priority: '', evidence: []
+        });
+      }
+
+      function importExcessiveAccessFinding(item) {
+        var sev = mapWiziSeverity(item.severity);
+        var cat = 'EAPM';
+        var id = generateNextId(cat);
+        var principal = item.principal || {};
+        var ge = principal.graphEntity || {};
+        var ca = principal.cloudAccount || {};
+        var technical = [];
+        if (item.cloudPlatform) technical.push('Cloud: ' + item.cloudPlatform);
+        if (ca.name) technical.push('Account: ' + ca.name);
+        if (ge.name) technical.push('Principal: ' + ge.name);
+        if (ge.type) technical.push('Principal Type: ' + ge.type);
+        if (item.remediationType) technical.push('Remediation Type: ' + item.remediationType);
+        var recs = [];
+        if (item.remediationInstructions) recs.push(item.remediationInstructions);
+        findings.push({
+          id: id, category: cat,
+          title: item.name || 'Excessive Access ' + item.id,
+          severity: sev,
+          description: splitLines(item.description || ''),
+          impact: [], technical: splitLines(technical.join('\n')),
+          policies: [], recs: splitLines(recs.join('\n')),
+          priority: '', evidence: []
+        });
+      }
+
+      function importNetworkExposureFinding(item) {
+        var cat = 'NEXP';
+        var id = generateNextId(cat);
+        var entity = item.exposedEntity || {};
+        var technical = [];
+        if (entity.name) technical.push('Entity: ' + entity.name);
+        if (entity.type) technical.push('Type: ' + entity.type);
+        if (item.sourceIpRange) technical.push('Source IP: ' + item.sourceIpRange);
+        if (item.portRange) technical.push('Port Range: ' + item.portRange);
+        if (item.type) technical.push('Exposure Type: ' + item.type);
+        var isPublic = (item.sourceIpRange || '').indexOf('0.0.0.0') >= 0;
+        findings.push({
+          id: id, category: cat,
+          title: 'Network Exposure — ' + (entity.name || item.id),
+          severity: isPublic ? 'high' : 'medium',
+          description: splitLines('חשיפת רשת של ' + (entity.name || 'משאב') + ' מ-' + (item.sourceIpRange || 'unknown')),
+          impact: [], technical: splitLines(technical.join('\n')),
+          policies: [], recs: [], priority: '', evidence: []
+        });
+      }
+
+      function importInventoryFinding(item) {
+        var sev = mapWiziSeverity(item.severity);
+        var cat = 'EOLM';
+        var id = generateNextId(cat);
+        var rule = item.rule || {};
+        var res = item.resource || {};
+        var ca = res.cloudAccount || {};
+        var technical = [];
+        if (res.cloudPlatform) technical.push('Cloud: ' + res.cloudPlatform);
+        if (ca.name) technical.push('Account: ' + ca.name);
+        if (res.region) technical.push('Region: ' + res.region);
+        if (res.name) technical.push('Resource: ' + res.name);
+        if (res.nativeType) technical.push('Type: ' + res.nativeType);
+        findings.push({
+          id: id, category: cat,
+          title: rule.name || 'Inventory Finding ' + item.id,
+          severity: sev,
+          description: splitLines(rule.description || ''),
+          impact: [], technical: splitLines(technical.join('\n')),
+          policies: [], recs: [], priority: '', evidence: []
+        });
+      }
 
     })();

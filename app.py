@@ -561,45 +561,148 @@ WIZI_ISSUES_QUERY = """
 query IssuesTable($first: Int, $after: String, $filterBy: IssueFilters) {
   issues(first: $first, after: $after, filterBy: $filterBy) {
     totalCount
-    pageInfo {
-      hasNextPage
-      endCursor
-    }
+    pageInfo { hasNextPage endCursor }
     nodes {
       id
-      sourceRules {
-        id
-        name
-        description
-      }
+      sourceRules { id name description }
       severity
       status
       description
-      projects {
-        id
-        name
-      }
-      cloudAccounts {
-        id
-        name
-        cloudProvider
-        externalId
-      }
+      projects { id name }
+      cloudAccounts { id name cloudProvider externalId }
       entitySnapshot {
-        name
-        type
-        cloudPlatform
-        region
-        subscriptionName
-        subscriptionExternalId
-        nativeType
-        tags
+        name type cloudPlatform region
+        subscriptionName subscriptionExternalId nativeType tags
       }
-      notes {
-        text
+      notes { text }
+      createdAt updatedAt
+    }
+  }
+}
+"""
+
+WIZI_CONFIG_FINDINGS_QUERY = """
+query ConfigFindings($first: Int, $after: String, $filterBy: ConfigurationFindingFilters) {
+  configurationFindings(first: $first, after: $after, filterBy: $filterBy) {
+    totalCount
+    pageInfo { hasNextPage endCursor }
+    nodes {
+      id name severity result status
+      rule { name description }
+      resource {
+        name type region nativeType
+        subscription { name cloudProvider externalId }
       }
-      createdAt
-      updatedAt
+      securitySubCategories { title category { name } }
+      analyzedAt
+    }
+  }
+}
+"""
+
+WIZI_VULN_FINDINGS_QUERY = """
+query VulnFindings($first: Int, $after: String, $filterBy: VulnerabilityFindingFilters) {
+  vulnerabilityFindings(first: $first, after: $after, filterBy: $filterBy) {
+    totalCount
+    pageInfo { hasNextPage endCursor }
+    nodes {
+      id name severity score
+      CVEDescription
+      hasExploit hasFix fixedVersion version
+      remediation description detailedName
+      status
+      projects { name }
+      firstDetectedAt lastDetectedAt
+    }
+  }
+}
+"""
+
+WIZI_HOST_CONFIG_QUERY = """
+query HostConfigFindings($first: Int, $after: String, $filterBy: HostConfigurationRuleAssessmentFilters) {
+  hostConfigurationRuleAssessments(first: $first, after: $after, filterBy: $filterBy) {
+    totalCount
+    pageInfo { hasNextPage endCursor }
+    nodes {
+      id severity result status
+      rule { name description }
+      resource {
+        name nativeType region cloudPlatform
+        subscription { name cloudProvider }
+      }
+    }
+  }
+}
+"""
+
+WIZI_DATA_FINDINGS_QUERY = """
+query DataFindings($first: Int, $after: String, $filterBy: DataFindingFiltersV2) {
+  dataFindingsV2(first: $first, after: $after, filterBy: $filterBy) {
+    totalCount
+    pageInfo { hasNextPage endCursor }
+    nodes {
+      id name severity status
+      dataClassifier { name category }
+      graphEntity { name type }
+      cloudAccount { name cloudProvider }
+    }
+  }
+}
+"""
+
+WIZI_SECRET_INSTANCES_QUERY = """
+query SecretInstances($first: Int, $after: String, $filterBy: SecretInstanceFilters) {
+  secretInstances(first: $first, after: $after, filterBy: $filterBy) {
+    totalCount
+    pageInfo { hasNextPage endCursor }
+    nodes {
+      id name severity status type path
+      rule { name }
+      resource { name nativeType region cloudPlatform }
+    }
+  }
+}
+"""
+
+WIZI_EXCESSIVE_ACCESS_QUERY = """
+query ExcessiveAccessFindings($first: Int, $after: String, $filterBy: ExcessiveAccessFindingFilters) {
+  excessiveAccessFindings(first: $first, after: $after, filterBy: $filterBy) {
+    totalCount
+    pageInfo { hasNextPage endCursor }
+    nodes {
+      id name severity status cloudPlatform description
+      remediationType remediationInstructions
+      principal { graphEntity { name type } cloudAccount { name } }
+    }
+  }
+}
+"""
+
+WIZI_NETWORK_EXPOSURE_QUERY = """
+query NetworkExposures($first: Int, $after: String, $filterBy: NetworkExposureFilters) {
+  networkExposures(first: $first, after: $after, filterBy: $filterBy) {
+    totalCount
+    pageInfo { hasNextPage endCursor }
+    nodes {
+      id sourceIpRange portRange type
+      exposedEntity { name type }
+    }
+  }
+}
+"""
+
+WIZI_INVENTORY_FINDINGS_QUERY = """
+query InventoryFindings($first: Int, $after: String, $filterBy: InventoryFindingFilters) {
+  inventoryFindings(first: $first, after: $after, filterBy: $filterBy) {
+    totalCount
+    pageInfo { hasNextPage endCursor }
+    nodes {
+      id severity status
+      rule { name description }
+      resource {
+        name nativeType region cloudPlatform
+        cloudAccount { name }
+      }
     }
   }
 }
@@ -720,17 +823,16 @@ def api_wizi_discover():
 
 @app.route("/api/wizi/issues", methods=["POST"])
 def api_wizi_issues():
-    """Fetch issues from Wizi with optional filters and pagination."""
+    """Fetch findings from Wizi with optional filters and pagination."""
     if not WIZI_CLIENT_ID or not WIZI_CLIENT_SECRET:
         return jsonify({"error": "Wizi integration not configured"}), 501
 
-    enforce_auth()
-
     data = request.get_json(silent=True) or {}
+    query_type = data.get("queryType", "issues")
     first = min(int(data.get("first", 100)), 500)
     after = data.get("after") or None
     severity = data.get("severity") or None
-    status = data.get("status") or ["OPEN", "IN_PROGRESS"]
+    status = data.get("status") or None
     project_id = data.get("project") or None
     subscription_id = data.get("subscription") or None
 
@@ -738,29 +840,103 @@ def api_wizi_issues():
     if after:
         variables["after"] = after
 
-    filter_by: Dict[str, Any] = {}
-    if severity:
-        filter_by["severity"] = severity if isinstance(severity, list) else [severity]
-    if status:
-        filter_by["status"] = status if isinstance(status, list) else [status]
-    if project_id:
-        filter_by["project"] = project_id if isinstance(project_id, list) else [project_id]
+    # Helper: ensure list
+    def as_list(v):
+        return v if isinstance(v, list) else [v]
 
-    # Subscription filter goes through relatedEntity
-    entity_filter: Dict[str, Any] = {}
-    if subscription_id:
-        entity_filter["subscriptionSearch"] = subscription_id
-    if entity_filter:
-        filter_by["relatedEntity"] = entity_filter
+    # Helper: wrap in {equals: [...]} for nested filter objects
+    def eq_wrap(v):
+        return {"equals": as_list(v)}
+
+    filter_by: Dict[str, Any] = {}
+
+    if query_type == "configurationFindings":
+        if severity:
+            filter_by["severity"] = as_list(severity)
+        if status:
+            filter_by["result"] = as_list(status)
+        gql = WIZI_CONFIG_FINDINGS_QUERY
+        root_key = "configurationFindings"
+
+    elif query_type == "vulnerabilityFindings":
+        if severity:
+            filter_by["severity"] = as_list(severity)
+        if status:
+            filter_by["status"] = as_list(status)
+        gql = WIZI_VULN_FINDINGS_QUERY
+        root_key = "vulnerabilityFindings"
+
+    elif query_type == "hostConfigurationRuleAssessments":
+        if severity:
+            filter_by["severity"] = as_list(severity)
+        if status:
+            filter_by["status"] = as_list(status)
+        gql = WIZI_HOST_CONFIG_QUERY
+        root_key = "hostConfigurationRuleAssessments"
+
+    elif query_type == "dataFindingsV2":
+        if severity:
+            filter_by["severity"] = eq_wrap(severity)
+        if status:
+            filter_by["status"] = eq_wrap(status)
+        gql = WIZI_DATA_FINDINGS_QUERY
+        root_key = "dataFindingsV2"
+
+    elif query_type == "secretInstances":
+        if severity:
+            filter_by["severity"] = eq_wrap(severity)
+        if status:
+            filter_by["status"] = eq_wrap(status)
+        gql = WIZI_SECRET_INSTANCES_QUERY
+        root_key = "secretInstances"
+
+    elif query_type == "excessiveAccessFindings":
+        if severity:
+            filter_by["severity"] = eq_wrap(severity)
+        if status:
+            filter_by["status"] = eq_wrap(status)
+        gql = WIZI_EXCESSIVE_ACCESS_QUERY
+        root_key = "excessiveAccessFindings"
+
+    elif query_type == "networkExposures":
+        # Network exposures have no severity/status filters
+        gql = WIZI_NETWORK_EXPOSURE_QUERY
+        root_key = "networkExposures"
+
+    elif query_type == "inventoryFindings":
+        if severity:
+            filter_by["severity"] = eq_wrap(severity)
+        if status:
+            filter_by["status"] = eq_wrap(status)
+        gql = WIZI_INVENTORY_FINDINGS_QUERY
+        root_key = "inventoryFindings"
+
+    else:
+        # Default: issues
+        if severity:
+            filter_by["severity"] = as_list(severity)
+        if status:
+            filter_by["status"] = as_list(status)
+        else:
+            filter_by["status"] = ["OPEN", "IN_PROGRESS"]
+        if project_id:
+            filter_by["project"] = project_id if isinstance(project_id, list) else [project_id]
+        entity_filter: Dict[str, Any] = {}
+        if subscription_id:
+            entity_filter["subscriptionSearch"] = subscription_id
+        if entity_filter:
+            filter_by["relatedEntity"] = entity_filter
+        gql = WIZI_ISSUES_QUERY
+        root_key = "issues"
 
     if filter_by:
         variables["filterBy"] = filter_by
 
     try:
-        result = _wizi_graphql(WIZI_ISSUES_QUERY, variables)
+        result = _wizi_graphql(gql, variables)
         if "errors" in result:
             return jsonify({"error": result["errors"][0].get("message", "GraphQL error"), "details": result["errors"]}), 502
-        return jsonify(result.get("data", {}))
+        return jsonify({"queryType": query_type, root_key: result.get("data", {}).get(root_key, {})})
     except urllib.error.HTTPError as e:
         body = e.read().decode("utf-8", errors="replace")
         return jsonify({"error": f"Wizi API error: {e.code}", "details": body}), 502
