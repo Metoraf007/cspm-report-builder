@@ -61,9 +61,21 @@ app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH
 
 import urllib.request
 import urllib.error
+import urllib.parse
 
 APP_TOKEN = os.environ.get("APP_TOKEN", "")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+
+# ---------------------------------------------------------------------------
+# Wizi (Wiz) integration
+# ---------------------------------------------------------------------------
+
+WIZI_CLIENT_ID = os.environ.get("WIZI_CLIENT_ID", "")
+WIZI_CLIENT_SECRET = os.environ.get("WIZI_CLIENT_SECRET", "")
+WIZI_AUTH_URL = os.environ.get("WIZI_AUTH_URL", "https://auth.app.wiz.io/oauth/token")
+WIZI_API_URL = os.environ.get("WIZI_API_URL", "https://api.il1.app.wiz.io/graphql")
+
+_wizi_token: Dict[str, Any] = {"access_token": "", "expires_at": 0}
 
 # ---------------------------------------------------------------------------
 # Simple in-memory rate limiter
@@ -391,7 +403,7 @@ def api_delete_output(filename: str):
 @app.route("/api/health")
 def api_health():
     """Health check for container orchestration."""
-    result = {"status": "ok", "ai_enabled": bool(GEMINI_API_KEY)}
+    result = {"status": "ok", "ai_enabled": bool(GEMINI_API_KEY), "wizi_enabled": bool(WIZI_CLIENT_ID and WIZI_CLIENT_SECRET)}
     if GEMINI_API_KEY:
         result["ai_models"] = GEMINI_MODELS
         result["ai_default_model"] = GEMINI_DEFAULT_MODEL
@@ -495,6 +507,144 @@ def api_suggest():
         return jsonify({"error": f"Gemini API error: {e.code}", "details": body}), 502
     except Exception as e:
         return jsonify({"error": str(e)}), 502
+
+
+# ---------------------------------------------------------------------------
+# Wizi (Wiz) API integration
+# ---------------------------------------------------------------------------
+
+def _wizi_get_token() -> str:
+    """Get a valid Wizi OAuth token, refreshing if expired."""
+    now = time.time()
+    if _wizi_token["access_token"] and _wizi_token["expires_at"] > now + 60:
+        return _wizi_token["access_token"]
+
+    payload = urllib.parse.urlencode({
+        "grant_type": "client_credentials",
+        "client_id": WIZI_CLIENT_ID,
+        "client_secret": WIZI_CLIENT_SECRET,
+        "audience": "wiz-api",
+    }).encode("utf-8")
+
+    req = urllib.request.Request(
+        WIZI_AUTH_URL,
+        data=payload,
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        result = json.loads(resp.read().decode("utf-8"))
+
+    _wizi_token["access_token"] = result["access_token"]
+    _wizi_token["expires_at"] = now + result.get("expires_in", 3600)
+    return _wizi_token["access_token"]
+
+
+def _wizi_graphql(query: str, variables: dict | None = None) -> dict:
+    """Execute a GraphQL query against the Wizi API."""
+    token = _wizi_get_token()
+    payload = json.dumps({"query": query, "variables": variables or {}}).encode("utf-8")
+    req = urllib.request.Request(
+        WIZI_API_URL,
+        data=payload,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+
+WIZI_ISSUES_QUERY = """
+query IssuesTable($first: Int, $after: String, $filterBy: IssueFilters) {
+  issues(first: $first, after: $after, filterBy: $filterBy) {
+    totalCount
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    nodes {
+      id
+      sourceRule {
+        name
+        description
+        remediationInstructions
+        externalReferences
+      }
+      severity
+      status
+      entitySnapshot {
+        name
+        type
+        cloudPlatform
+        region
+        subscriptionName
+        subscriptionExternalId
+        nativeType
+        tags
+      }
+      notes {
+        text
+      }
+      createdAt
+      updatedAt
+    }
+  }
+}
+"""
+
+
+@app.route("/api/wizi/issues", methods=["POST"])
+def api_wizi_issues():
+    """Fetch issues from Wizi with optional filters and pagination."""
+    if not WIZI_CLIENT_ID or not WIZI_CLIENT_SECRET:
+        return jsonify({"error": "Wizi integration not configured"}), 501
+
+    enforce_auth()
+
+    data = request.get_json(silent=True) or {}
+    first = min(int(data.get("first", 100)), 500)
+    after = data.get("after") or None
+    severity = data.get("severity") or None  # list like ["CRITICAL","HIGH"]
+    status = data.get("status") or ["OPEN", "IN_PROGRESS"]
+
+    variables: Dict[str, Any] = {"first": first}
+    if after:
+        variables["after"] = after
+
+    filter_by: Dict[str, Any] = {}
+    if severity:
+        filter_by["severity"] = severity if isinstance(severity, list) else [severity]
+    if status:
+        filter_by["status"] = status if isinstance(status, list) else [status]
+    if filter_by:
+        variables["filterBy"] = filter_by
+
+    try:
+        result = _wizi_graphql(WIZI_ISSUES_QUERY, variables)
+        if "errors" in result:
+            return jsonify({"error": result["errors"][0].get("message", "GraphQL error"), "details": result["errors"]}), 502
+        return jsonify(result.get("data", {}))
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8", errors="replace")
+        return jsonify({"error": f"Wizi API error: {e.code}", "details": body}), 502
+    except Exception as e:
+        return jsonify({"error": str(e)}), 502
+
+
+@app.route("/api/wizi/status")
+def api_wizi_status():
+    """Check if Wizi integration is configured and reachable."""
+    if not WIZI_CLIENT_ID or not WIZI_CLIENT_SECRET:
+        return jsonify({"enabled": False})
+    try:
+        result = _wizi_graphql("query { issues(first: 1) { totalCount } }")
+        total = result.get("data", {}).get("issues", {}).get("totalCount", 0)
+        return jsonify({"enabled": True, "totalIssues": total})
+    except Exception as e:
+        return jsonify({"enabled": False, "error": str(e)})
 
 
 # ---------------------------------------------------------------------------

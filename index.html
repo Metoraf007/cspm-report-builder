@@ -23,6 +23,7 @@
       <button class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-findings-list" id="tab-findings-list">ממצאים שנוספו</button>
       <button class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-export" id="tab-export">ייצוא דו"ח</button>
       <button class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-cloud-manager" id="tab-cloud-manager">ניהול קבצים בשרת</button>
+      <button class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-wizi" id="tab-wizi" style="display:none;">🔍 Wizi</button>
     </nav>
 
     <!-- Panel: פרטי דו"ח -->
@@ -265,6 +266,49 @@
           <label for="cloud-upload-state">העלאת תצורה (JSON)</label>
           <input type="file" id="cloud-upload-state" accept="application/json" aria-label="העלאת קובץ תצורה לשרת">
         </div>
+      </div>
+    </section>
+
+    <!-- Panel: Wizi integration -->
+    <section class="tab-panel" id="panel-wizi" role="tabpanel" aria-labelledby="tab-wizi">
+      <div class="section-body">
+        <div class="row">
+          <div class="col" style="max-width:180px;">
+            <label for="wizi-severity">סינון חומרה</label>
+            <select id="wizi-severity" multiple size="5">
+              <option value="CRITICAL" selected>Critical</option>
+              <option value="HIGH" selected>High</option>
+              <option value="MEDIUM">Medium</option>
+              <option value="LOW">Low</option>
+              <option value="INFORMATIONAL">Informational</option>
+            </select>
+          </div>
+          <div class="col" style="max-width:180px;">
+            <label for="wizi-status">סטטוס</label>
+            <select id="wizi-status" multiple size="3">
+              <option value="OPEN" selected>Open</option>
+              <option value="IN_PROGRESS" selected>In Progress</option>
+              <option value="RESOLVED">Resolved</option>
+            </select>
+          </div>
+          <div class="col" style="max-width:120px;">
+            <label for="wizi-limit">כמות</label>
+            <select id="wizi-limit">
+              <option value="50">50</option>
+              <option value="100" selected>100</option>
+              <option value="200">200</option>
+              <option value="500">500</option>
+            </select>
+          </div>
+          <div class="col" style="align-self:end;">
+            <button class="btn btn-primary" id="btn-wizi-fetch">שלוף ממצאים מ-Wizi</button>
+            <button class="btn btn-secondary" id="btn-wizi-load-more" style="display:none;">טען עוד</button>
+          </div>
+        </div>
+        <div id="wizi-status-msg" class="muted small-text" role="status" aria-live="polite"></div>
+        <div id="wizi-results" class="small-text"></div>
+        <button class="btn btn-primary" id="btn-wizi-import-selected" style="display:none;">ייבא נבחרים לדו"ח</button>
+        <button class="btn btn-secondary" id="btn-wizi-select-all" style="display:none;">בחר/בטל הכל</button>
       </div>
     </section>
 

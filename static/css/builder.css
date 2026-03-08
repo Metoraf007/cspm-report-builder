@@ -535,3 +535,17 @@ table caption {
   gap: 8px;
   flex-wrap: wrap;
 }
+
+/* ── Wizi multi-select ── */
+select[multiple] {
+  padding: 4px;
+  height: auto;
+  background-image: none;
+  padding-left: 8px;
+}
+
+select[multiple] option {
+  padding: 4px 8px;
+  border-radius: 4px;
+  margin-bottom: 2px;
+}

@@ -18,4 +18,9 @@ services:
       # Gemini API key for AI writing assistant (optional)
       # Get one at https://aistudio.google.com/apikey
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      # Wizi (Wiz) integration — service account credentials
+      - WIZI_CLIENT_ID=${WIZI_CLIENT_ID:-}
+      - WIZI_CLIENT_SECRET=${WIZI_CLIENT_SECRET:-}
+      - WIZI_AUTH_URL=${WIZI_AUTH_URL:-https://auth.app.wiz.io/oauth/token}
+      - WIZI_API_URL=${WIZI_API_URL:-https://api.il1.app.wiz.io/graphql}
     restart: unless-stopped

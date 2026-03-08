@@ -7,7 +7,9 @@ venv/
 
 # Environment variables
 .env
-.env.*
+.env.local
+.env.production
+.env.development
 
 # Wiz reports
 Report_*.csv

@@ -2633,4 +2633,224 @@
         });
       }
 
+      // =====================================================================
+      // Wizi integration
+      // =====================================================================
+      var wiziTab = document.getElementById('tab-wizi');
+      var wiziResults = document.getElementById('wizi-results');
+      var wiziStatusMsg = document.getElementById('wizi-status-msg');
+      var wiziFetchBtn = document.getElementById('btn-wizi-fetch');
+      var wiziLoadMoreBtn = document.getElementById('btn-wizi-load-more');
+      var wiziImportBtn = document.getElementById('btn-wizi-import-selected');
+      var wiziSelectAllBtn = document.getElementById('btn-wizi-select-all');
+      var wiziIssues = [];
+      var wiziEndCursor = null;
+      var wiziHasNextPage = false;
+
+      // Check if Wizi is enabled on load
+      if (isCloud) {
+        fetch('/api/wizi/status')
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            if (data.enabled) {
+              wiziTab.style.display = '';
+              wiziStatusMsg.textContent = 'Wizi מחובר — ' + (data.totalIssues || 0) + ' issues בסה"כ';
+            }
+          })
+          .catch(function() {});
+      }
+
+      function getSelectedValues(selectEl) {
+        var vals = [];
+        for (var i = 0; i < selectEl.options.length; i++) {
+          if (selectEl.options[i].selected) vals.push(selectEl.options[i].value);
+        }
+        return vals;
+      }
+
+      function mapWiziSeverity(sev) {
+        var m = { CRITICAL: 'critical', HIGH: 'high', MEDIUM: 'medium', LOW: 'low', INFORMATIONAL: 'info' };
+        return m[(sev || '').toUpperCase()] || 'medium';
+      }
+
+      function mapWiziCategory(entity) {
+        if (!entity) return 'CSPM';
+        var t = (entity.type || '').toLowerCase();
+        var nt = (entity.nativeType || '').toLowerCase();
+        if (t.includes('kubernetes') || nt.includes('k8s') || nt.includes('kube')) return 'KSPM';
+        if (t.includes('database') || t.includes('storage') || nt.includes('rds') || nt.includes('s3')) return 'DSPM';
+        if (t.includes('network') || t.includes('firewall') || t.includes('security_group') || nt.includes('securitygroup')) return 'NEXP';
+        if (t.includes('iam') || t.includes('role') || t.includes('policy') || nt.includes('iam')) return 'EAPM';
+        if (t.includes('virtual_machine') || t.includes('host') || nt.includes('ec2') || nt.includes('vm')) return 'HSPM';
+        if (t.includes('secret') || nt.includes('secret')) return 'SECR';
+        return 'CSPM';
+      }
+
+      function renderWiziTable() {
+        if (!wiziIssues.length) {
+          wiziResults.innerHTML = '<p class="muted">לא נמצאו ממצאים.</p>';
+          wiziImportBtn.style.display = 'none';
+          wiziSelectAllBtn.style.display = 'none';
+          return;
+        }
+
+        var html = '<table><caption>ממצאי Wizi — סמן לייבוא</caption><thead><tr>' +
+          '<th><input type="checkbox" id="wizi-check-all"></th>' +
+          '<th>Rule</th><th>חומרה</th><th>Entity</th><th>Cloud</th><th>Region</th><th>סטטוס</th>' +
+          '</tr></thead><tbody>';
+
+        wiziIssues.forEach(function(issue, idx) {
+          var sev = (issue.severity || 'MEDIUM').toUpperCase();
+          var sevClass = 'sev-' + mapWiziSeverity(sev);
+          var entity = issue.entitySnapshot || {};
+          var rule = issue.sourceRule || {};
+          html += '<tr>' +
+            '<td><input type="checkbox" class="wizi-check" data-idx="' + idx + '" checked></td>' +
+            '<td title="' + (rule.description || '').replace(/"/g, '&quot;') + '">' + (rule.name || 'N/A') + '</td>' +
+            '<td><span class="severity-chip ' + sevClass + '">' + sev + '</span></td>' +
+            '<td>' + (entity.name || 'N/A') + '<br><span class="muted">' + (entity.nativeType || entity.type || '') + '</span></td>' +
+            '<td>' + (entity.cloudPlatform || '') + '</td>' +
+            '<td>' + (entity.region || '') + '</td>' +
+            '<td>' + (issue.status || '') + '</td>' +
+            '</tr>';
+        });
+
+        html += '</tbody></table>';
+        wiziResults.innerHTML = html;
+        wiziImportBtn.style.display = '';
+        wiziSelectAllBtn.style.display = '';
+
+        // Check-all toggle
+        document.getElementById('wizi-check-all').addEventListener('change', function() {
+          var checked = this.checked;
+          document.querySelectorAll('.wizi-check').forEach(function(cb) { cb.checked = checked; });
+        });
+      }
+
+      wiziFetchBtn.addEventListener('click', function() {
+        wiziIssues = [];
+        wiziEndCursor = null;
+        fetchWiziIssues(false);
+      });
+
+      wiziLoadMoreBtn.addEventListener('click', function() {
+        fetchWiziIssues(true);
+      });
+
+      function fetchWiziIssues(append) {
+        var sevFilter = getSelectedValues(document.getElementById('wizi-severity'));
+        var statusFilter = getSelectedValues(document.getElementById('wizi-status'));
+        var limit = parseInt(document.getElementById('wizi-limit').value) || 100;
+
+        wiziFetchBtn.disabled = true;
+        wiziStatusMsg.textContent = 'שולף ממצאים מ-Wizi...';
+
+        var body = { first: limit, severity: sevFilter, status: statusFilter };
+        if (append && wiziEndCursor) body.after = wiziEndCursor;
+
+        fetch('/api/wizi/issues', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.error) {
+            wiziStatusMsg.textContent = 'שגיאה: ' + data.error;
+            return;
+          }
+          var issues = data.issues || {};
+          var nodes = issues.nodes || [];
+          var pageInfo = issues.pageInfo || {};
+
+          if (append) {
+            wiziIssues = wiziIssues.concat(nodes);
+          } else {
+            wiziIssues = nodes;
+          }
+
+          wiziEndCursor = pageInfo.endCursor || null;
+          wiziHasNextPage = pageInfo.hasNextPage || false;
+          wiziLoadMoreBtn.style.display = wiziHasNextPage ? '' : 'none';
+
+          wiziStatusMsg.textContent = 'נמצאו ' + wiziIssues.length + ' ממצאים' +
+            (issues.totalCount ? ' (מתוך ' + issues.totalCount + ')' : '') +
+            (wiziHasNextPage ? ' — יש עוד' : '');
+
+          renderWiziTable();
+        })
+        .catch(function(e) {
+          wiziStatusMsg.textContent = 'שגיאת רשת: ' + e.message;
+        })
+        .finally(function() {
+          wiziFetchBtn.disabled = false;
+        });
+      }
+
+      wiziSelectAllBtn.addEventListener('click', function() {
+        var checks = document.querySelectorAll('.wizi-check');
+        var allChecked = Array.from(checks).every(function(cb) { return cb.checked; });
+        checks.forEach(function(cb) { cb.checked = !allChecked; });
+        var checkAll = document.getElementById('wizi-check-all');
+        if (checkAll) checkAll.checked = !allChecked;
+      });
+
+      wiziImportBtn.addEventListener('click', function() {
+        var selected = [];
+        document.querySelectorAll('.wizi-check:checked').forEach(function(cb) {
+          var idx = parseInt(cb.getAttribute('data-idx'));
+          if (wiziIssues[idx]) selected.push(wiziIssues[idx]);
+        });
+
+        if (!selected.length) {
+          wiziStatusMsg.textContent = 'לא נבחרו ממצאים לייבוא.';
+          return;
+        }
+
+        var imported = 0;
+        selected.forEach(function(issue) {
+          var rule = issue.sourceRule || {};
+          var entity = issue.entitySnapshot || {};
+          var sev = mapWiziSeverity(issue.severity);
+          var cat = mapWiziCategory(entity);
+          var id = generateNextId(cat);
+
+          var technical = [];
+          if (entity.cloudPlatform) technical.push('Cloud: ' + entity.cloudPlatform);
+          if (entity.subscriptionName) technical.push('Subscription: ' + entity.subscriptionName);
+          if (entity.region) technical.push('Region: ' + entity.region);
+          if (entity.name) technical.push('Entity: ' + entity.name);
+          if (entity.nativeType) technical.push('Type: ' + entity.nativeType);
+
+          var refs = [];
+          if (rule.externalReferences) {
+            try {
+              var parsed = typeof rule.externalReferences === 'string' ? JSON.parse(rule.externalReferences) : rule.externalReferences;
+              if (Array.isArray(parsed)) refs = parsed.map(function(r) { return r.url || r.name || String(r); });
+            } catch(e) {}
+          }
+
+          findings.push({
+            id: id,
+            category: cat,
+            title: rule.name || 'Wizi Issue ' + issue.id,
+            severity: sev,
+            description: splitLines(rule.description || ''),
+            impact: [],
+            technical: splitLines(technical.join('\n')),
+            policies: refs.length ? refs : [],
+            recs: splitLines(rule.remediationInstructions || ''),
+            priority: '',
+            evidence: []
+          });
+          imported++;
+        });
+
+        renderFindingsTable();
+        prefillId();
+        autoSave();
+        switchToTab('tab-findings-list');
+        statusMsg.textContent = 'יובאו ' + imported + ' ממצאים מ-Wizi. סה"כ: ' + findings.length;
+      });
+
     })();
