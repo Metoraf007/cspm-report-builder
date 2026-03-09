@@ -4390,24 +4390,14 @@
           if (ruleLines.length) technical.push('Rule Detail: ' + ruleLines[0]);
         }
 
-        // Policies: from securitySubCategories — extract short reference, not full regulatory text
-        var policies = [];
+        // Policies: extract unique framework/standard names from securitySubCategories
+        // The API returns dozens of individual control references — we only need the framework names
+        var policySet = {};
         (item.securitySubCategories || []).forEach(function(sc) {
-          var catName = (sc.category && sc.category.name) ? sc.category.name : '';
-          var scTitle = sc.title || '';
-          // Many titles contain full regulatory text after a dash or number pattern
-          // e.g. "7.1 In order to address and manage ICT risk, financial entities shall..."
-          // We want just the reference: "7.1" or "PSS-01 Guidelines..." (first ~80 chars)
-          if (scTitle.length > 80) {
-            // Try to cut at first sentence boundary within 80 chars
-            var cut = scTitle.substring(0, 80);
-            var lastSpace = cut.lastIndexOf(' ');
-            if (lastSpace > 30) cut = cut.substring(0, lastSpace);
-            scTitle = cut + '…';
-          }
-          var label = catName ? catName + ' — ' + scTitle : scTitle;
-          if (label) policies.push(label);
+          var catName = (sc.category && sc.category.name) ? sc.category.name.trim() : '';
+          if (catName && !policySet[catName]) policySet[catName] = true;
         });
+        var policies = Object.keys(policySet);
 
         // Recommendations: extract from rule description or generic
         var recs = [];
