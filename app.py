@@ -849,10 +849,10 @@ def api_wizi_issues():
     def eq_wrap(v):
         return {"equals": as_list(v)}
 
-    # Resolve subscription search text → cloud account IDs for non-issues queries
+    # Resolve subscription search text → cloud account IDs
     resolved_sub_ids: list = []
     resolved_sub_ext_ids: list = []
-    if subscription_id and query_type != "issues":
+    if subscription_id:
         try:
             sub_result = _wizi_graphql(
                 'query($filterBy: CloudAccountFilters) { cloudAccounts(first: 100, filterBy: $filterBy) { nodes { id name externalId } } }',
@@ -951,11 +951,11 @@ def api_wizi_issues():
             filter_by["status"] = ["OPEN", "IN_PROGRESS"]
         if project_id:
             filter_by["project"] = project_id if isinstance(project_id, list) else [project_id]
-        entity_filter: Dict[str, Any] = {}
         if subscription_id:
-            entity_filter["subscriptionSearch"] = subscription_id
-        if entity_filter:
-            filter_by["relatedEntity"] = entity_filter
+            if resolved_sub_ids:
+                filter_by["cloudAccountOrCloudOrganizationId"] = resolved_sub_ids
+            else:
+                filter_by.setdefault("relatedEntity", {})["subscriptionSearch"] = subscription_id
         gql = WIZI_ISSUES_QUERY
         root_key = "issues"
 
@@ -988,6 +988,9 @@ def api_wizi_find_by_id():
     if not finding_id:
         return jsonify({"error": "No finding ID provided"}), 400
 
+    # Store resolved subscription names for client-side filtering
+    resolved_sub_names: list = []
+
     # Resolve subscription text → cloud account IDs (if provided)
     resolved_sub_ids: list = []
     resolved_sub_ext_ids: list = []
@@ -1009,6 +1012,7 @@ def api_wizi_find_by_id():
                 if nodes:
                     resolved_sub_ids = [n["id"] for n in nodes if n.get("id")]
                     resolved_sub_ext_ids = [n["externalId"] for n in nodes if n.get("externalId")]
+                    resolved_sub_names = [n["name"] for n in nodes if n.get("name")]
                     break
             except Exception:
                 continue
@@ -1029,7 +1033,11 @@ def api_wizi_find_by_id():
         if not subscription_filter:
             return filter_by
         if qt == "issues":
-            filter_by.setdefault("relatedEntity", {})["subscriptionSearch"] = subscription_filter
+            # Prefer resolved cloud account IDs (exact match) over free-text search
+            if resolved_sub_ids:
+                filter_by["cloudAccountOrCloudOrganizationId"] = resolved_sub_ids
+            else:
+                filter_by.setdefault("relatedEntity", {})["subscriptionSearch"] = subscription_filter
         elif qt == "configurationFindings" and resolved_sub_ids:
             filter_by["resource"] = {"subscriptionId": resolved_sub_ids}
         elif qt == "vulnerabilityFindings" and resolved_sub_ext_ids:
@@ -1049,13 +1057,33 @@ def api_wizi_find_by_id():
     def _client_side_sub_filter(nodes: list) -> list:
         if not subscription_filter or not nodes:
             return nodes
+
+        # If we resolved actual subscription names, use those for exact matching
+        if resolved_sub_names:
+            resolved_lower = [n.lower() for n in resolved_sub_names]
+
+            def matches(node: dict) -> bool:
+                names = []
+                names.append((node.get("entitySnapshot") or {}).get("subscriptionName", ""))
+                res = node.get("resource") or {}
+                res_sub = res.get("subscription") or {}
+                names.append(res_sub.get("name", ""))
+                ca = node.get("cloudAccount") or res.get("cloudAccount") or {}
+                names.append(ca.get("name", ""))
+                principal_ca = (node.get("principal") or {}).get("cloudAccount") or {}
+                names.append(principal_ca.get("name", ""))
+                return any(n.lower() in resolved_lower for n in names if n)
+
+            return [n for n in nodes if matches(n)]
+
+        # Fallback: token-based fuzzy matching from user input
         needle = subscription_filter.lower()
         tokens = [needle]
-        parts = [p.lower() for p in subscription_filter.replace("_", "-").split("-") if len(p) >= 3]
+        parts = [p.lower() for p in subscription_filter.replace("_", "-").split("-") if len(p) >= 4]
         skip = {"aws", "dev", "prod", "stg", "test", "gcp", "azure"}
         tokens.extend([p for p in parts if p not in skip])
 
-        def matches(node: dict) -> bool:
+        def matches_fuzzy(node: dict) -> bool:
             names = []
             names.append((node.get("entitySnapshot") or {}).get("subscriptionName", ""))
             res = node.get("resource") or {}
@@ -1070,7 +1098,7 @@ def api_wizi_find_by_id():
                 return False
             return any(t in combined for t in tokens)
 
-        return [n for n in nodes if matches(n)]
+        return [n for n in nodes if matches_fuzzy(n)]
 
     def _paginate(all_nodes: list, qt: str, total: int) -> dict:
         """Return a page of results with metadata."""
