@@ -588,7 +588,7 @@ query ConfigFindings($first: Int, $after: String, $filterBy: ConfigurationFindin
     pageInfo { hasNextPage endCursor }
     nodes {
       id name severity result status
-      rule { name description }
+      rule { id name shortId description }
       resource {
         name type region nativeType
         subscription { name cloudProvider externalId }
@@ -625,7 +625,7 @@ query HostConfigFindings($first: Int, $after: String, $filterBy: HostConfigurati
     pageInfo { hasNextPage endCursor }
     nodes {
       id severity result status
-      rule { name description }
+      rule { id name shortId description }
       resource {
         name nativeType region cloudPlatform
         subscription { name cloudProvider }
@@ -698,7 +698,7 @@ query InventoryFindings($first: Int, $after: String, $filterBy: InventoryFinding
     pageInfo { hasNextPage endCursor }
     nodes {
       id severity status
-      rule { name description }
+      rule { id name shortId description }
       resource {
         name nativeType region cloudPlatform
         cloudAccount { name }
@@ -1141,6 +1141,28 @@ def api_wizi_find_by_id():
             filtered = _client_side_sub_filter(nodes) if subscription_filter else nodes
             if filtered:
                 return jsonify(_paginate(filtered, "hostConfigurationRuleAssessments", len(filtered)))
+    except Exception:
+        pass
+
+    # Strategy 5: Search by rule shortId (e.g. EC2-005, Custom-Rule-140)
+    # Two-step: resolve shortId → rule UUID, then search config findings by rule UUID
+    try:
+        rule_lookup = _wizi_graphql(
+            'query($filterBy: CloudConfigurationRuleFilters) { cloudConfigurationRules(first: 5, filterBy: $filterBy) { nodes { id name shortId } } }',
+            {"filterBy": {"shortId": {"equals": [finding_id]}}}
+        )
+        rule_nodes = rule_lookup.get("data", {}).get("cloudConfigurationRules", {}).get("nodes", [])
+        if rule_nodes:
+            rule_uuids = [r["id"] for r in rule_nodes]
+            filter_by = {"rule": {"id": rule_uuids}}
+            filter_by = _add_sub_filter(filter_by, "configurationFindings")
+            variables = {"first": fetch_limit, "filterBy": filter_by}
+            result = _wizi_graphql(WIZI_CONFIG_FINDINGS_QUERY, variables)
+            nodes = result.get("data", {}).get("configurationFindings", {}).get("nodes", [])
+            if nodes:
+                filtered = _client_side_sub_filter(nodes) if subscription_filter else nodes
+                if filtered:
+                    return jsonify(_paginate(filtered, "configurationFindings", len(filtered)))
     except Exception:
         pass
 

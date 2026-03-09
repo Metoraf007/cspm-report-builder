@@ -3517,7 +3517,7 @@
       function renderWiziConfigTable() {
         var html = '<table><caption>ממצאי Wizi — Configuration Findings — סמן לייבוא</caption><thead><tr>' +
           '<th><input type="checkbox" id="wizi-check-all" checked></th>' +
-          '<th>Rule</th><th>חומרה</th><th>תוצאה</th><th>Resource</th><th>Type</th><th>Subscription</th><th>Region</th>' +
+          '<th>Rule</th><th>ID</th><th>חומרה</th><th>תוצאה</th><th>Resource</th><th>Subscription</th><th>Region</th>' +
           '</tr></thead><tbody>';
 
         wiziIssues.forEach(function(item, idx) {
@@ -3528,13 +3528,14 @@
           var sub = resource.subscription || {};
           var resultBadge = (item.result || '').toUpperCase();
           var resultClass = resultBadge === 'FAIL' ? 'sev-high' : resultBadge === 'PASS' ? 'sev-low' : 'sev-medium';
+          var shortId = rule.shortId || '';
           html += '<tr>' +
             '<td><input type="checkbox" class="wizi-check" data-idx="' + idx + '" checked></td>' +
             '<td title="' + (rule.description || '').replace(/"/g, '&quot;') + '">' + (rule.name || item.name || 'N/A') + '</td>' +
+            '<td><span class="muted" style="font-family:monospace;font-size:10px;">' + shortId + '</span></td>' +
             '<td><span class="severity-chip ' + sevClass + '">' + sev + '</span></td>' +
             '<td><span class="severity-chip ' + resultClass + '">' + resultBadge + '</span></td>' +
             '<td>' + (resource.name || 'N/A') + '</td>' +
-            '<td><span class="muted">' + (resource.nativeType || resource.type || '') + '</span></td>' +
             '<td>' + (sub.name || '') + '</td>' +
             '<td>' + (resource.region || '') + '</td>' +
             '</tr>';
