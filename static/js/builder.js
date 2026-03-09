@@ -3486,7 +3486,7 @@
       function renderWiziIssuesTable() {
         var html = '<table><caption>ממצאי Wizi — Issues — סמן לייבוא</caption><thead><tr>' +
           '<th><input type="checkbox" id="wizi-check-all" checked></th>' +
-          '<th>Rule</th><th>חומרה</th><th>Entity</th><th>Subscription</th><th>Cloud</th><th>Region</th><th>סטטוס</th>' +
+          '<th>Rule</th><th>Control ID</th><th>חומרה</th><th>Entity</th><th>Subscription</th><th>Cloud</th><th>Region</th><th>סטטוס</th>' +
           '</tr></thead><tbody>';
 
         wiziIssues.forEach(function(issue, idx) {
@@ -3496,9 +3496,11 @@
           var rules = issue.sourceRules || [];
           var ruleName = rules.length ? rules[0].name : (issue.description || 'N/A');
           var ruleDesc = rules.length ? rules[0].description : '';
+          var controlId = (issue.control && issue.control.id) ? issue.control.id : (rules.length ? rules[0].id : '');
           html += '<tr>' +
             '<td><input type="checkbox" class="wizi-check" data-idx="' + idx + '" checked></td>' +
             '<td title="' + (ruleDesc).replace(/"/g, '&quot;') + '">' + ruleName + '</td>' +
+            '<td><span class="muted" style="font-family:monospace;font-size:10px;cursor:pointer;user-select:all;" title="לחץ להעתקה">' + controlId + '</span></td>' +
             '<td><span class="severity-chip ' + sevClass + '">' + sev + '</span></td>' +
             '<td>' + (entity.name || 'N/A') + '<br><span class="muted">' + (entity.nativeType || entity.type || '') + '</span></td>' +
             '<td>' + (entity.subscriptionName || '') + '</td>' +

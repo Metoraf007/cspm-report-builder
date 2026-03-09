@@ -564,6 +564,7 @@ query IssuesTable($first: Int, $after: String, $filterBy: IssueFilters) {
     pageInfo { hasNextPage endCursor }
     nodes {
       id
+      control { id name }
       sourceRules { id name description }
       severity
       status
@@ -1104,7 +1105,7 @@ def api_wizi_find_by_id():
 
     # Strategy 2: Search by rule ID — issues use sourceRule filter
     try:
-        filter_by = {"sourceRule": [finding_id]}
+        filter_by = {"sourceRule": {"id": [finding_id]}}
         filter_by = _add_sub_filter(filter_by, "issues")
         variables = {"first": fetch_limit, "filterBy": filter_by}
         result = _wizi_graphql(WIZI_ISSUES_QUERY, variables)
@@ -1118,7 +1119,7 @@ def api_wizi_find_by_id():
 
     # Strategy 3: Search config findings by rule ID
     try:
-        filter_by = {"rule": [finding_id]}
+        filter_by = {"rule": {"id": [finding_id]}}
         filter_by = _add_sub_filter(filter_by, "configurationFindings")
         variables = {"first": fetch_limit, "filterBy": filter_by}
         result = _wizi_graphql(WIZI_CONFIG_FINDINGS_QUERY, variables)
@@ -1132,7 +1133,7 @@ def api_wizi_find_by_id():
 
     # Strategy 4: Search host config by rule ID
     try:
-        filter_by = {"rule": [finding_id]}
+        filter_by = {"ruleV2": {"id": {"equals": [finding_id]}}}
         filter_by = _add_sub_filter(filter_by, "hostConfigurationRuleAssessments")
         variables = {"first": fetch_limit, "filterBy": filter_by}
         result = _wizi_graphql(WIZI_HOST_CONFIG_QUERY, variables)

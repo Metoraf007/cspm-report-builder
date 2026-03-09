@@ -18,15 +18,28 @@ A self-hosted web tool for building, managing, and exporting Cloud Security Post
 - **Custom cover image** — upload your own cover image from the UI, or use the default
 - **State management** — save/load report configurations as JSON, both locally and on the server
 - **CSV import** — bulk import findings from CSV exports (auto-maps common column names)
-- **Wizi integration** — connect to Wiz (Wizi) API to fetch findings directly, with 9 query types, subscription/project filtering, and one-click import to report
+- **Wizi integration** — connect to Wiz (Wizi) API to fetch findings directly, with 9 query types, subscription/project filtering, shortId search, and one-click import to report
+- **Find by ID** — search findings by UUID, rule ID (wc-id-xxx), or rule shortId (EC2-005) with paginated results and subscription filtering
+- **Smart field mapping** — imported findings auto-populate description, impact, technical details, recommendations, and policies with relevant data
+- **Framework detection** — policies field shows top 4 relevant frameworks (ISO 27001, NIST CSF, CIS Controls, PCI-DSS, etc.) instead of raw control references
+- **Finding preview panel** — slide-out panel showing all finding details without leaving the table
+- **Batch edit** — select multiple findings and change severity, priority, or owner in bulk
+- **Drag-and-drop reorder** — reorder findings in the table by dragging
+- **Inline quick-edit** — click title, severity, or owner directly in the table to edit
+- **Finding deduplication** — auto-detects duplicate findings during Wizi import
+- **Dark/light theme** — toggle between dark and light themes, persisted in localStorage
+- **Owner field** — track the team/entity responsible for fixing each finding
 - **File manager** — upload, download, and manage state files and output reports on the server
-- **Keyboard navigation** — J/K to navigate findings, E to edit, D to delete
+- **Keyboard navigation** — J/K to navigate findings, E to edit, D to delete, ? for shortcuts overlay
 - **Trend comparison** — import a previous JSON snapshot to see new, resolved, and severity-changed findings
 - **Report versioning** — track report version number across revisions
 - **Multiple evidence images** — attach multiple screenshots per finding with drag-and-drop, paste, and lightbox preview
 - **Multi-language reports** — toggle between Hebrew and English report output
 - **Auto-save** — automatic save to localStorage every 10 seconds with visual indicator
 - **Defaults system** — save and load default report details (client name, environment, etc.)
+- **Category count badges** — visual badges showing finding count per category
+- **Toast notifications** — non-intrusive feedback for all actions
+- **Progress stepper** — visual progress indicator across report building steps
 - **Rate limiting** — configurable per-IP rate limiting on mutating API endpoints
 
 ## Quick Start
@@ -80,12 +93,7 @@ WIZI_API_URL=https://api.il1.app.wiz.io/graphql
 WIZI_AUTH_URL=https://auth.app.wiz.io/oauth/token
 ```
 
-The service account needs read permissions. When configured, a "Wizi" tab appears in the UI with:
-- 9 query types covering all major Wiz finding categories
-- Project and subscription filtering with autocomplete
-- Severity and status filters per query type
-- Paginated results with "load more"
-- One-click import of selected findings into the report
+The service account needs read permissions. When configured, a "Wizi" tab appears in the UI.
 
 ### Configuration
 
@@ -119,7 +127,49 @@ The Wizi tab connects to the Wiz API and supports 9 query types:
 | Network Exposure | NEXP | Network exposure findings |
 | Inventory / EOL | EOLM | End-of-life and inventory findings |
 
-Each query type has its own severity/status filter options matching the Wiz API schema. Subscription filtering resolves cloud account names server-side and applies the correct filter field per query type, with a client-side fallback.
+### Find by ID
+
+The quick search bar at the top of the Wizi tab supports multiple identifier formats:
+
+| Format | Example | Description |
+|---|---|---|
+| Rule shortId | `EC2-005` | Cloud configuration rule short identifier (visible in Wiz console) |
+| Rule ID | `wc-id-870` | Issue source rule identifier |
+| UUID | `e7dba598-3065-...` | Full finding UUID |
+| Free text | `IMDSv2` | Falls back to free-text search on issues |
+
+The search runs through 6 strategies in order: direct UUID lookup across all 9 query types, issue sourceRule filter, config rule filter, host config rule filter, shortId resolution via `cloudConfigurationRules`, and free-text search fallback. Results are paginated (5 per page) with subscription filtering support.
+
+### Smart Field Mapping
+
+When importing findings from Wizi, fields are automatically mapped:
+
+| Report Field | Source |
+|---|---|
+| Title | Rule name |
+| Description | Finding name (what was actually found) |
+| Impact | Severity-based context + resource name |
+| Technical | Cloud, subscription, region, resource details + rule description excerpt |
+| Recommendations | Actionable sentences extracted from rule description, or domain-specific defaults |
+| Policies | Top 4 relevant frameworks detected from `securitySubCategories` |
+| Owner | Subscription name or project name |
+
+### Framework Detection
+
+The policies field maps Wizi's `securitySubCategories` (which can contain 50+ individual control references) to recognized framework names, sorted by relevance:
+
+1. ISO 27001
+2. NIST CSF
+3. CIS Controls
+4. PCI-DSS
+5. SOC 2
+6. NIST 800-53
+7. DORA
+8. NIS2
+9. CSA CCM
+10. AWS Security Best Practices
+
+Only the top 4 matching frameworks are shown per finding.
 
 ## Usage
 
@@ -136,14 +186,18 @@ Each query type has its own severity/status filter options matching the Wiz API 
 6. Duplicate similar findings with the "שכפל" button
 7. Use **J/K** keys to navigate the findings table, **E** to edit, **D** to delete
 8. Use **finding templates** dropdown to quickly add common findings
+9. Click the **👁** button to preview a finding in the slide-out panel
+10. Click severity chips in the table to cycle through severity levels
+11. Drag the **⠿** handle to reorder findings
 
 ### Importing from Wizi
 
 1. Go to the **Wizi** tab
-2. Select a query type, optionally filter by project/subscription/severity/status
-3. Click **שלח שאילתה** to fetch findings
+2. **Quick search**: enter a rule shortId (e.g. `EC2-005`), rule ID, or UUID in the search bar, optionally filter by subscription
+3. **Browse**: select a query type, filter by project/subscription/severity/status, click fetch
 4. Select findings using checkboxes (or select all)
 5. Click **ייבוא נבחרים** to import into the report with auto-mapped fields
+6. Use **batch edit** to change severity/priority/owner on multiple findings at once
 
 ### Exporting
 
@@ -211,6 +265,7 @@ For other CSV sources, the importer auto-maps common column names:
 | `GET` | `/api/wizi/projects` | List Wizi projects |
 | `GET` | `/api/wizi/subscriptions` | List Wizi subscriptions |
 | `POST` | `/api/wizi/issues` | Fetch Wizi findings (all 9 query types) |
+| `POST` | `/api/wizi/find-by-id` | Search by ID/shortId/rule with pagination |
 | `POST` | `/api/wizi/graphql` | Raw GraphQL proxy (for debugging) |
 | `GET` | `/api/wizi/discover` | Introspect available Wizi API fields |
 
@@ -222,9 +277,9 @@ For other CSV sources, the importer auto-maps common column names:
 ├── index.html                  # Builder UI (entry point)
 ├── static/
 │   ├── css/
-│   │   └── builder.css         # Builder UI styles
+│   │   └── builder.css         # Builder UI styles (dark/light themes)
 │   └── js/
-│       └── builder.js          # Builder UI logic + Wizi integration
+│       └── builder.js          # Builder UI logic + Wizi integration + import mapping
 ├── assets/
 │   ├── cover.png               # Default report cover image
 │   └── report.css              # Generated report stylesheet
