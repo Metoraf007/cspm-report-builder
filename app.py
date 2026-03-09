@@ -981,8 +981,37 @@ def api_wizi_find_by_id():
 
     data = request.get_json(silent=True) or {}
     finding_id = (data.get("id") or "").strip()
+    subscription_filter = (data.get("subscription") or "").strip()
     if not finding_id:
         return jsonify({"error": "No finding ID provided"}), 400
+
+    # Resolve subscription text → cloud account IDs (if provided)
+    resolved_sub_ids: list = []
+    resolved_sub_ext_ids: list = []
+    if subscription_filter:
+        # Try multiple search terms: full text, then individual segments
+        search_terms = [subscription_filter]
+        # Split by common separators and try significant parts (3+ chars)
+        parts = [p for p in subscription_filter.replace("_", "-").split("-") if len(p) >= 3]
+        # Try the most specific parts first (longer parts)
+        parts.sort(key=len, reverse=True)
+        for part in parts[:3]:
+            if part.lower() not in ("aws", "dev", "prod", "stg", "test"):
+                search_terms.append(part)
+
+        for term in search_terms:
+            try:
+                sub_result = _wizi_graphql(
+                    'query($filterBy: CloudAccountFilters) { cloudAccounts(first: 100, filterBy: $filterBy) { nodes { id name externalId } } }',
+                    {"filterBy": {"search": term}}
+                )
+                nodes = sub_result.get("data", {}).get("cloudAccounts", {}).get("nodes", [])
+                if nodes:
+                    resolved_sub_ids = [n["id"] for n in nodes if n.get("id")]
+                    resolved_sub_ext_ids = [n["externalId"] for n in nodes if n.get("externalId")]
+                    break
+            except Exception:
+                continue
 
     # Query types to try with direct ID filter
     queries = [
@@ -997,10 +1026,69 @@ def api_wizi_find_by_id():
         ("inventoryFindings", "inventoryFindings", WIZI_INVENTORY_FINDINGS_QUERY),
     ]
 
+    def _add_sub_filter(filter_by: dict, qt: str) -> dict:
+        """Add subscription filter to filterBy based on query type."""
+        if not subscription_filter:
+            return filter_by
+        if qt == "issues":
+            filter_by.setdefault("relatedEntity", {})["subscriptionSearch"] = subscription_filter
+        elif qt == "configurationFindings" and resolved_sub_ids:
+            filter_by["resource"] = {"subscriptionId": resolved_sub_ids}
+        elif qt == "vulnerabilityFindings" and resolved_sub_ext_ids:
+            filter_by["subscriptionExternalId"] = resolved_sub_ext_ids
+        elif qt == "hostConfigurationRuleAssessments" and resolved_sub_ids:
+            filter_by["resource"] = {"subscriptionId": resolved_sub_ids}
+        elif qt == "dataFindingsV2" and resolved_sub_ext_ids:
+            filter_by["graphEntityCloudAccount"] = {"equals": resolved_sub_ext_ids}
+        elif qt == "secretInstances" and resolved_sub_ext_ids:
+            filter_by["cloudAccount"] = {"equals": resolved_sub_ext_ids}
+        elif qt == "networkExposures" and resolved_sub_ext_ids:
+            filter_by["cloudAccount"] = resolved_sub_ext_ids
+        elif qt == "inventoryFindings" and resolved_sub_ids:
+            filter_by["resource"] = {"subscriptionId": {"equals": resolved_sub_ids}}
+        return filter_by
+
+    def _client_side_sub_filter(nodes: list) -> list:
+        """Fallback: filter nodes client-side by subscription name if server-side filter wasn't applied."""
+        if not subscription_filter or not nodes:
+            return nodes
+        needle = subscription_filter.lower()
+        # Build search tokens: full text + significant parts
+        tokens = [needle]
+        parts = [p.lower() for p in subscription_filter.replace("_", "-").split("-") if len(p) >= 3]
+        skip = {"aws", "dev", "prod", "stg", "test", "gcp", "azure"}
+        tokens.extend([p for p in parts if p not in skip])
+
+        def matches(node: dict) -> bool:
+            # Collect all subscription/account name candidates from the node
+            names = []
+            # issues: entitySnapshot.subscriptionName
+            names.append((node.get("entitySnapshot") or {}).get("subscriptionName", ""))
+            # config/host config: resource.subscription.name
+            res = node.get("resource") or {}
+            res_sub = res.get("subscription") or {}
+            names.append(res_sub.get("name", ""))
+            # data/secret/inventory: cloudAccount.name or resource.cloudAccount.name
+            ca = node.get("cloudAccount") or res.get("cloudAccount") or {}
+            names.append(ca.get("name", ""))
+            # excessive access: principal.cloudAccount.name
+            principal_ca = (node.get("principal") or {}).get("cloudAccount") or {}
+            names.append(principal_ca.get("name", ""))
+
+            combined = " ".join(n.lower() for n in names if n)
+            if not combined:
+                return False
+            # Match if any significant token appears in the name
+            return any(t in combined for t in tokens)
+
+        return [n for n in nodes if matches(n)]
+
     # Strategy 1: Direct ID filter (works for finding UUIDs)
     for qt, root_key, gql in queries:
         try:
-            variables: Dict[str, Any] = {"first": 1, "filterBy": {"id": finding_id}}
+            filter_by: Dict[str, Any] = {"id": finding_id}
+            filter_by = _add_sub_filter(filter_by, qt)
+            variables: Dict[str, Any] = {"first": 1, "filterBy": filter_by}
             result = _wizi_graphql(gql, variables)
             if "errors" in result:
                 continue
@@ -1010,43 +1098,62 @@ def api_wizi_find_by_id():
         except Exception:
             continue
 
+    # For rule-based strategies, fetch more results and filter
+    fetch_limit = 50 if subscription_filter else 5
+
     # Strategy 2: Search by rule ID (e.g. wc-id-493) — issues use sourceRule filter
     try:
-        variables = {"first": 5, "filterBy": {"sourceRule": [finding_id]}}
+        filter_by = {"sourceRule": [finding_id]}
+        filter_by = _add_sub_filter(filter_by, "issues")
+        variables = {"first": fetch_limit, "filterBy": filter_by}
         result = _wizi_graphql(WIZI_ISSUES_QUERY, variables)
         nodes = result.get("data", {}).get("issues", {}).get("nodes", [])
         if nodes:
-            return jsonify({"queryType": "issues", "node": nodes[0], "totalMatches": len(nodes)})
+            filtered = _client_side_sub_filter(nodes) if subscription_filter else nodes
+            if filtered:
+                return jsonify({"queryType": "issues", "node": filtered[0], "totalMatches": len(filtered)})
     except Exception:
         pass
 
     # Strategy 3: Search config findings by rule ID
     try:
-        variables = {"first": 5, "filterBy": {"rule": [finding_id]}}
+        filter_by = {"rule": [finding_id]}
+        filter_by = _add_sub_filter(filter_by, "configurationFindings")
+        variables = {"first": fetch_limit, "filterBy": filter_by}
         result = _wizi_graphql(WIZI_CONFIG_FINDINGS_QUERY, variables)
         nodes = result.get("data", {}).get("configurationFindings", {}).get("nodes", [])
         if nodes:
-            return jsonify({"queryType": "configurationFindings", "node": nodes[0], "totalMatches": len(nodes)})
+            filtered = _client_side_sub_filter(nodes) if subscription_filter else nodes
+            if filtered:
+                return jsonify({"queryType": "configurationFindings", "node": filtered[0], "totalMatches": len(filtered)})
     except Exception:
         pass
 
     # Strategy 4: Search host config by rule ID
     try:
-        variables = {"first": 5, "filterBy": {"rule": [finding_id]}}
+        filter_by = {"rule": [finding_id]}
+        filter_by = _add_sub_filter(filter_by, "hostConfigurationRuleAssessments")
+        variables = {"first": fetch_limit, "filterBy": filter_by}
         result = _wizi_graphql(WIZI_HOST_CONFIG_QUERY, variables)
         nodes = result.get("data", {}).get("hostConfigurationRuleAssessments", {}).get("nodes", [])
         if nodes:
-            return jsonify({"queryType": "hostConfigurationRuleAssessments", "node": nodes[0], "totalMatches": len(nodes)})
+            filtered = _client_side_sub_filter(nodes) if subscription_filter else nodes
+            if filtered:
+                return jsonify({"queryType": "hostConfigurationRuleAssessments", "node": filtered[0], "totalMatches": len(filtered)})
     except Exception:
         pass
 
     # Strategy 5: Free-text search via issues (catches partial matches)
     try:
-        variables = {"first": 5, "filterBy": {"search": finding_id}}
+        filter_by = {"search": finding_id}
+        filter_by = _add_sub_filter(filter_by, "issues")
+        variables = {"first": fetch_limit, "filterBy": filter_by}
         result = _wizi_graphql(WIZI_ISSUES_QUERY, variables)
         nodes = result.get("data", {}).get("issues", {}).get("nodes", [])
         if nodes:
-            return jsonify({"queryType": "issues", "node": nodes[0], "totalMatches": len(nodes)})
+            filtered = _client_side_sub_filter(nodes) if subscription_filter else nodes
+            if filtered:
+                return jsonify({"queryType": "issues", "node": filtered[0], "totalMatches": len(filtered)})
     except Exception:
         pass
 

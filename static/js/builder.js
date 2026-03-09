@@ -3906,6 +3906,7 @@
 
       // ── Fetch by Wizi finding ID ──
       var wiziFindIdInput = document.getElementById('wizi-find-id');
+      var wiziFindIdSubInput = document.getElementById('wizi-find-id-sub');
       var wiziFindIdBtn = document.getElementById('btn-wizi-find-by-id');
       var wiziFindIdStatus = document.getElementById('wizi-find-id-status');
 
@@ -3917,13 +3918,18 @@
             return;
           }
 
+          var subFilter = (wiziFindIdSubInput.value || '').trim();
+
           wiziFindIdBtn.disabled = true;
           wiziFindIdStatus.textContent = 'מחפש ממצא...';
+
+          var payload = { id: findingId };
+          if (subFilter) payload.subscription = subFilter;
 
           fetch('/api/wizi/find-by-id', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: findingId })
+            body: JSON.stringify(payload)
           })
           .then(function(r) { return r.json(); })
           .then(function(data) {
