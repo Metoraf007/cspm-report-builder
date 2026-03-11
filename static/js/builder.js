@@ -98,7 +98,9 @@
       var stepFindingsCount = document.getElementById('step-findings-count');
 
       function updateStepper() {
-        var hasDetails = !!(document.getElementById('report-client').value.trim() || document.getElementById('report-env').value.trim());
+        var clientEl = document.getElementById('report-client');
+        var envEl = document.getElementById('report-env');
+        var hasDetails = !!(clientEl && clientEl.value.trim()) || !!(envEl && envEl.value.trim());
         var hasFindings = findings.length > 0;
 
         stepperSteps.forEach(function(s) {
@@ -190,11 +192,12 @@
 
       // ממיר מחרוזת תאריך בפורמט DD/MM/YYYY לאובייקט Date
       function parseReportDate(str) {
-        if (!str) return null;
+        if (!str || typeof str !== 'string') return null;
         const parts = str.split(/[.\-\/]/).map(Number);
         if (parts.length !== 3) return null;
         const [day, month, year] = parts;
-        if (!day || !month || !year) return null;
+        if (!day || !month || !year || isNaN(day) || isNaN(month) || isNaN(year)) return null;
+        if (day < 1 || day > 31 || month < 1 || month > 12 || year < 1900 || year > 2100) return null;
         const d = new Date(year, month - 1, day);
         // בדיקת sanity בסיסית
         if (d.getFullYear() !== year || d.getMonth() !== month - 1 || d.getDate() !== day) {
@@ -288,17 +291,27 @@
 
       templateSelect.addEventListener('change', function() {
         if (this.value === '') return;
-        var t = findingTemplates[parseInt(this.value)];
+        var idx = parseInt(this.value);
+        if (isNaN(idx) || idx < 0 || idx >= findingTemplates.length) return;
+        var t = findingTemplates[idx];
         if (!t) return;
-        document.getElementById('f-category').value = t.category;
+        
+        var categoryEl = document.getElementById('f-category');
+        var titleEl = document.getElementById('f-title');
+        var severityEl = document.getElementById('f-severity');
+        var descEl = document.getElementById('f-description');
+        var impactEl = document.getElementById('f-impact');
+        var recsEl = document.getElementById('f-recs');
+        
+        if (categoryEl) categoryEl.value = t.category || 'CSPM';
         prefillId();
-        document.getElementById('f-title').value = t.title;
-        document.getElementById('f-severity').value = t.severity;
-        document.getElementById('f-description').value = t.description || '';
-        document.getElementById('f-impact').value = t.impact || '';
-        document.getElementById('f-recs').value = t.recs || '';
+        if (titleEl) titleEl.value = t.title || '';
+        if (severityEl) severityEl.value = t.severity || 'medium';
+        if (descEl) descEl.value = t.description || '';
+        if (impactEl) impactEl.value = t.impact || '';
+        if (recsEl) recsEl.value = t.recs || '';
         this.value = '';
-        document.getElementById('f-title').focus();
+        if (titleEl) titleEl.focus();
       });
 
       // --- Auto-generate finding ID per category ---
@@ -314,8 +327,10 @@
 
       function prefillId() {
         var idField = document.getElementById('f-id');
+        if (!idField) return;
         if (editingIndex === null) {
-          var cat = document.getElementById('f-category').value;
+          var catEl = document.getElementById('f-category');
+          var cat = catEl ? catEl.value : 'CSPM';
           idField.value = generateNextId(cat);
           idField.readOnly = true;
         }
@@ -338,18 +353,28 @@
       const dateInput = document.getElementById('report-date');
 
       function getDateAsDDMMYYYY() {
+        if (!dateInput) return '';
         const val = dateInput.value; // YYYY-MM-DD from native picker
         if (!val) return '';
-        const [y, m, d] = val.split('-');
+        const parts = val.split('-');
+        if (parts.length !== 3) return '';
+        const [y, m, d] = parts;
+        if (!y || !m || !d) return '';
         return d + '/' + m + '/' + y;
       }
 
       function setDateFromDDMMYYYY(str) {
-        if (!str) { dateInput.value = ''; return; }
+        if (!dateInput) return;
+        if (!str || typeof str !== 'string') { dateInput.value = ''; return; }
         const parts = str.split(/[.\-\/]/);
         if (parts.length !== 3) { dateInput.value = ''; return; }
         const [d, m, y] = parts;
-        dateInput.value = y + '-' + m.padStart(2, '0') + '-' + d.padStart(2, '0');
+        if (!d || !m || !y) { dateInput.value = ''; return; }
+        try {
+          dateInput.value = y + '-' + m.padStart(2, '0') + '-' + d.padStart(2, '0');
+        } catch (e) {
+          dateInput.value = '';
+        }
       }
 
       // --- Priority custom field toggle ---
@@ -3486,19 +3511,14 @@
                 return { 
                   id: s.name, 
                   label: s.name, 
-                  sub: s.cloudProvider + ' · ' + (s.externalId || s.id.substring(0, 8))
+                  sub: s.cloudProvider + ' · ' + (s.externalId || (s.id ? s.id.substring(0, 8) : ''))
                 };
               });
-              console.log('Wizi: loaded ' + wiziSubscriptions.length + ' subscriptions');
-            } else {
-              console.warn('Wizi subscriptions: no data', data);
             }
           })
-          .catch(function(e) { console.warn('Wizi subscriptions fetch failed:', e); });
-        
-        // Try to load subscriptions — no root query available, use free text search
-        // Subscriptions are filtered via relatedEntity.subscriptionSearch in the issues query
-        console.log('Wizi: subscription filter uses free-text search (no root query available)');
+          .catch(function(e) { 
+            // Silently fail - subscriptions autocomplete is optional
+          });
       }
 
       // Check if Wizi is enabled on load
@@ -3910,7 +3930,9 @@
               if (!subName) return false; // No subscription name, exclude
               return subName.toLowerCase().indexOf(subFilter) >= 0;
             });
-            console.log('Wizi: Client-side subscription filter: ' + beforeFilter + ' → ' + nodes.length + ' (filter: "' + subFilter + '")');
+            if (beforeFilter !== nodes.length) {
+              showToast('סונן ' + (beforeFilter - nodes.length) + ' ממצאים לפי subscription', 'info');
+            }
           }
 
           if (append) {
@@ -3992,11 +4014,6 @@
           var ee = node.exposedEntity || {};
           var eca = ee.cloudAccount || {};
           subName = eca.name || '';
-        }
-        
-        // Debug: log first few subscription names
-        if (subName && Math.random() < 0.1) {
-          console.log('Wizi: Sample subscription name (' + qt + '): "' + subName + '"');
         }
         
         return subName;
