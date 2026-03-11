@@ -3887,6 +3887,12 @@
             wiziStatusMsg.textContent = 'שגיאה: ' + data.error;
             return;
           }
+          
+          // Show warning if subscription resolution failed
+          if (data.warning) {
+            showToast(data.warning, 'warning');
+          }
+          
           var rootKey = data.queryType || qt;
           var resultSet = data[rootKey] || {};
           var nodes = resultSet.nodes || [];
@@ -4109,9 +4115,14 @@
             });
             
             // Update Entity/Resource line if resources changed
-            if (allResources.length > existingResources.length && entityLineIndex >= 0) {
-              var prefix = existingFinding.technical[entityLineIndex].split(':')[0];
-              existingFinding.technical[entityLineIndex] = prefix + ': ' + allResources.join(', ');
+            if (allResources.length > existingResources.length) {
+              if (entityLineIndex >= 0) {
+                var prefix = existingFinding.technical[entityLineIndex].split(':')[0];
+                existingFinding.technical[entityLineIndex] = prefix + ': ' + allResources.join(', ');
+              } else if (allResources.length > 0) {
+                // Entity line doesn't exist, create it at the beginning
+                existingFinding.technical.unshift('Affected Resources: ' + allResources.join(', '));
+              }
             }
             
             // Update owner field if subscriptions changed
@@ -4154,10 +4165,25 @@
           fn(firstItem);
           imported++;
           
-          // If multiple items with same rule, consolidate resources and subscriptions
+          // Extract all unique subscription names from all items (for owner field)
+          var allSubscriptions = [];
+          items.forEach(function(item) {
+            var subName = getNodeSubscriptionName(item, wiziQueryType);
+            if (subName && allSubscriptions.indexOf(subName) === -1) {
+              allSubscriptions.push(subName);
+            }
+          });
+          
+          var lastFinding = findings[findings.length - 1];
+          
+          // Set owner field to subscription(s) - works for single or multiple items
+          if (allSubscriptions.length > 0) {
+            lastFinding.owner = allSubscriptions.join(', ');
+          }
+          
+          // If multiple items with same rule, consolidate resources
           if (items.length > 1) {
             consolidated += items.length - 1;
-            var lastFinding = findings[findings.length - 1];
             
             // Extract all unique resource names
             var allResources = [];
@@ -4165,15 +4191,6 @@
               var resourceName = extractResourceName(item, wiziQueryType);
               if (resourceName && allResources.indexOf(resourceName) === -1) {
                 allResources.push(resourceName);
-              }
-            });
-            
-            // Extract all unique subscription names
-            var allSubscriptions = [];
-            items.forEach(function(item) {
-              var subName = getNodeSubscriptionName(item, wiziQueryType);
-              if (subName && allSubscriptions.indexOf(subName) === -1) {
-                allSubscriptions.push(subName);
               }
             });
             
@@ -4197,12 +4214,8 @@
               }
             }
             
-            // If multiple subscriptions, update owner field and add to technical details
+            // If multiple subscriptions, also update Subscription line in technical details
             if (allSubscriptions.length > 1) {
-              // Update owner field to show all subscriptions
-              lastFinding.owner = allSubscriptions.join(', ');
-              
-              // Also update Subscription line in technical details if it exists
               var subLineIndex = -1;
               for (var k = 0; k < lastFinding.technical.length; k++) {
                 if (lastFinding.technical[k].startsWith('Subscription:') || 
@@ -4216,9 +4229,6 @@
                 var subPrefix = lastFinding.technical[subLineIndex].split(':')[0];
                 lastFinding.technical[subLineIndex] = subPrefix + ': ' + allSubscriptions.join(', ');
               }
-            } else if (allSubscriptions.length === 1) {
-              // Single subscription - set owner to just that subscription
-              lastFinding.owner = allSubscriptions[0];
             }
           }
           

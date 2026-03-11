@@ -922,6 +922,7 @@ def api_wizi_issues():
     # Resolve subscription search text → cloud account IDs
     resolved_sub_ids: list = []
     resolved_sub_ext_ids: list = []
+    subscription_resolution_failed = False
     if subscription_id:
         try:
             # Try exact search first
@@ -953,8 +954,13 @@ def api_wizi_issues():
             
             resolved_sub_ids = [n["id"] for n in nodes if n.get("id")]
             resolved_sub_ext_ids = [n["externalId"] for n in nodes if n.get("externalId")]
-        except Exception:
-            pass  # Fall through — client-side filter will still apply
+            
+            # If still no results, mark as failed for user feedback
+            if not resolved_sub_ids and not resolved_sub_ext_ids:
+                subscription_resolution_failed = True
+        except Exception as e:
+            subscription_resolution_failed = True
+            # Log error but continue - client-side filter will still apply
 
     filter_by: Dict[str, Any] = {}
 
@@ -1074,7 +1080,14 @@ def api_wizi_issues():
         result = _wizi_graphql(gql, variables)
         if "errors" in result:
             return jsonify({"error": result["errors"][0].get("message", "GraphQL error"), "details": result["errors"]}), 502
-        return jsonify({"queryType": query_type, root_key: result.get("data", {}).get(root_key, {})})
+        
+        response_data = {"queryType": query_type, root_key: result.get("data", {}).get(root_key, {})}
+        
+        # Add warning if subscription resolution failed
+        if subscription_resolution_failed:
+            response_data["warning"] = f"Subscription '{subscription_id}' not found in cloud accounts. Results may be unfiltered."
+        
+        return jsonify(response_data)
     except urllib.error.HTTPError as e:
         body = e.read().decode("utf-8", errors="replace")
         return jsonify({"error": f"Wizi API error: {e.code}", "details": body}), 502
